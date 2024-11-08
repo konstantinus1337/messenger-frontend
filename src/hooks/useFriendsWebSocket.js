@@ -1,4 +1,3 @@
-// hooks/useFriendsWebSocket.js
 import { useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { webSocketService } from '../api/websocket';
@@ -23,8 +22,11 @@ export const useFriendsWebSocket = () => {
 
         const setupWebSocket = async () => {
             try {
-                // Подписываемся на обновления статусов
-                await webSocketService.subscribeToUserStatus(handleStatusUpdate);
+                // Сначала подключаемся
+                await webSocketService.connect(token);
+
+                // После успешного подключения подписываемся на обновления статусов
+                await webSocketService.subscribe('/user.status', handleStatusUpdate);
 
                 // Запрашиваем актуальный список друзей
                 dispatch(fetchFriends());
@@ -41,3 +43,5 @@ export const useFriendsWebSocket = () => {
         };
     }, [token, handleStatusUpdate, dispatch]);
 };
+
+export default useFriendsWebSocket;

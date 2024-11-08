@@ -1,4 +1,3 @@
-// components/friends/FriendsList.js
 import React from 'react';
 import { useSelector } from 'react-redux';
 import {
@@ -7,12 +6,14 @@ import {
     ListItemAvatar,
     ListItemText,
     ListItemSecondaryAction,
-    Avatar,
     IconButton,
     Badge,
-    styled
+    styled,
+    Stack,
+    Avatar    // Добавлен импорт Avatar
 } from '@mui/material';
 import { Delete as DeleteIcon } from '@mui/icons-material';
+import StartChatButton from './StartChatButton';
 
 const OnlineBadge = styled(Badge)(({ theme }) => ({
     '& .MuiBadge-badge': {
@@ -53,8 +54,6 @@ const FriendsList = ({ onDelete }) => {
                 const statusData = onlineStatuses[friend.id];
                 const isOnline = statusData?.status === 'ONLINE';
 
-                console.log(`Friend ${friend.id} status:`, statusData);
-
                 return (
                     <ListItem key={friend.id}>
                         <ListItemAvatar>
@@ -82,13 +81,17 @@ const FriendsList = ({ onDelete }) => {
                             }
                         />
                         <ListItemSecondaryAction>
-                            <IconButton
-                                edge="end"
-                                onClick={() => onDelete(friend.id)}
-                                color="error"
-                            >
-                                <DeleteIcon />
-                            </IconButton>
+                            <Stack direction="row" spacing={1}>
+                                <StartChatButton friendId={friend.id} />
+                                <IconButton
+                                    edge="end"
+                                    onClick={() => onDelete(friend.id)}
+                                    color="error"
+                                    size="small"
+                                >
+                                    <DeleteIcon />
+                                </IconButton>
+                            </Stack>
                         </ListItemSecondaryAction>
                     </ListItem>
                 );

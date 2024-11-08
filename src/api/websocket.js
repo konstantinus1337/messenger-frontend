@@ -128,6 +128,21 @@ class WebSocketService {
     isConnected() {
         return this.connected && this.stompClient?.connected;
     }
+
+    async subscribeToUserStatus(callback) {
+        try {
+            // Подписываемся на обновления статуса пользователя
+            const userStatusSubscription = await this.subscribe('/user.status', (message) => {
+                callback(message);
+            });
+
+            return userStatusSubscription;
+        } catch (error) {
+            console.error('Error subscribing to user status:', error);
+            throw error;
+        }
+    }
+
 }
 
 export const webSocketService = new WebSocketService();
