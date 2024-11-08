@@ -1,93 +1,99 @@
-// hooks/useChatWebSocket.js
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { webSocketService } from '../api/websocket';
-import { debounce } from 'lodash';
+import { messageReceived } from '../redux/slices/chatsSlice';
 
 export const useChatWebSocket = () => {
     const dispatch = useDispatch();
     const { activeChat } = useSelector(state => state.chats);
     const token = localStorage.getItem('token');
-    const typingTimeoutRef = useRef(null);
+
+    const handleNewMessage = useCallback((message) => {
+        console.log('Received message:', message);
+        const formattedMessage = {
+            id: message.id,
+            chatId: message.privateChatId || message.groupChatId,
+            type: activeChat.type,
+            text: message.message,
+            timestamp: message.sendTime,
+            sender: {
+                id: message.senderId,
+                username: message.senderUsername,
+                nickname: message.senderNickname
+            },
+            receiver: activeChat.type === 'private' ? {
+                id: message.receiverId,
+                username: message.receiverUsername,
+                nickname: message.receiverNickname
+            } : null,
+            read: false
+        };
+
+        dispatch(messageReceived(formattedMessage));
+    }, [dispatch, activeChat.type]);
 
     // Подключение к WebSocket
     useEffect(() => {
         if (!token) return;
 
-        const connectWebSocket = async () => {
+        const connect = async () => {
             try {
                 await webSocketService.connect(token);
+                console.log('WebSocket connection established');
             } catch (error) {
-                console.error('Failed to connect to WebSocket:', error);
+                console.error('WebSocket connection failed:', error);
             }
         };
 
-        connectWebSocket();
+        connect();
 
         return () => {
             webSocketService.disconnect();
         };
     }, [token]);
 
-    // Подписка на события активного чата
+    // Подписка на сообщения
     useEffect(() => {
-        if (!activeChat.id || !webSocketService.connected) return;
+        if (!activeChat.id || !token) return;
 
-        webSocketService.subscribeToChat(activeChat.id, activeChat.type);
+        const subscribe = async () => {
+            try {
+                const messageDestination = `/${activeChat.type === 'private' ? 'private' : 'group'}.message.${activeChat.id}`;
+                await webSocketService.subscribe(messageDestination, handleNewMessage);
+                console.log('Subscribed to messages:', messageDestination);
+            } catch (error) {
+                console.error('Failed to subscribe:', error);
+            }
+        };
+
+        subscribe();
 
         return () => {
             webSocketService.unsubscribeFromChat();
         };
-    }, [activeChat.id, activeChat.type]);
+    }, [activeChat.id, activeChat.type, handleNewMessage, token]);
 
-    // Отправка сообщения
-    const sendMessage = useCallback((message) => {
-        webSocketService.sendMessage(
-            activeChat.id,
-            activeChat.type,
-            message
-        );
-    }, [activeChat]);
+    // Функция отправки сообщения
+    const sendMessage = useCallback(async ({ chatId, type, message }) => {
+        if (!webSocketService.isConnected()) {
+            throw new Error('WebSocket not connected');
+        }
 
-    // Обработка статуса печатания
-    const sendTypingStatus = useCallback(
-        debounce((isTyping) => {
-            if (!activeChat.id) return;
+        const destination = `/${type === 'private' ? 'app/private' : 'app/group'}.message.send/${chatId}`;
+        console.log('Sending message to:', destination, message);
 
-            webSocketService.sendTypingStatus(
-                activeChat.id,
-                activeChat.type,
-                isTyping
-            );
-
-            // Очищаем предыдущий таймаут
-            if (typingTimeoutRef.current) {
-                clearTimeout(typingTimeoutRef.current);
-            }
-
-            // Устанавливаем новый таймаут для сброса статуса
-            if (isTyping) {
-                typingTimeoutRef.current = setTimeout(() => {
-                    webSocketService.sendTypingStatus(
-                        activeChat.id,
-                        activeChat.type,
-                        false
-                    );
-                }, 3000);
-            }
-        }, 300),
-        [activeChat]
-    );
-
-    // Отметка о прочтении сообщения
-    const markMessageAsRead = useCallback((messageId) => {
-        webSocketService.markMessageAsRead(messageId);
+        try {
+            await webSocketService.send(destination, message);
+        } catch (error) {
+            console.error('Failed to send message:', error);
+            throw error;
+        }
     }, []);
 
     return {
         sendMessage,
-        sendTypingStatus,
-        markMessageAsRead,
-        isConnected: webSocketService.connected
+        isConnected: webSocketService.isConnected()
     };
 };
+
+export default useChatWebSocket;

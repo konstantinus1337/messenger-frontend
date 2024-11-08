@@ -37,7 +37,6 @@ export const fetchChats = createAsyncThunk(
             }
         }));
 
-        // Transform group chats to common format
         const transformedGroupChats = groupChats.data.map(chat => ({
             id: chat.id,
             type: 'group',
@@ -60,6 +59,18 @@ export const fetchChats = createAsyncThunk(
         };
     }
 );
+export const fetchChatMembers = createAsyncThunk(
+    'chats/fetchChatMembers',
+    async ({ chatId, chatType }) => {
+        const api = chatType === 'private' ? privateChatApi : groupChatApi;
+        const response = await api.getChatMembers(chatId);
+
+        return {
+            chatId,
+            members: response.data
+        };
+    }
+);
 
 export const fetchChatMessages = createAsyncThunk(
     'chats/fetchChatMessages',
@@ -67,22 +78,24 @@ export const fetchChatMessages = createAsyncThunk(
         const api = chatType === 'private' ? privateChatApi : groupChatApi;
         const response = await api.getChatMessages(chatId);
 
-        // Transform messages to common format
+        // Трансформируем сообщения в единый формат
         const transformedMessages = response.data.map(message => ({
             id: message.id,
             chatId: chatType === 'private' ? message.privateChatId : message.groupChatId,
             type: chatType,
             text: message.message,
-            timestamp: message.sendTime,
+            timestamp: message.sendTime || message.timestamp,
             sender: {
                 id: message.senderId,
                 username: message.senderUsername,
                 nickname: message.senderNickname
             },
             receiver: chatType === 'private' ? {
+                id: message.receiverId,
                 username: message.receiverUsername,
                 nickname: message.receiverNickname
-            } : null
+            } : null,
+            read: message.read || false
         }));
 
         return {
@@ -91,6 +104,7 @@ export const fetchChatMessages = createAsyncThunk(
         };
     }
 );
+
 
 export const sendMessage = createAsyncThunk(
     'chats/sendMessage',
@@ -134,10 +148,12 @@ const chatsSlice = createSlice({
             id: null,
             type: null,
             messages: [],
+            members: []
         },
         loading: {
             chats: false,
             messages: false,
+            members: false,
             sending: false
         },
         fileUpload: {
@@ -271,6 +287,32 @@ const chatsSlice = createSlice({
             })
             .addCase(fetchChats.rejected, (state, action) => {
                 state.loading.chats = false;
+                state.error = action.error.message;
+            }).addCase(fetchChatMembers.pending, (state) => {
+            state.loading.members = true;
+        })
+            .addCase(fetchChatMembers.fulfilled, (state, action) => {
+                state.loading.members = false;
+                if (state.activeChat.id === action.payload.chatId) {
+                    state.activeChat.members = action.payload.members;
+                }
+            })
+            .addCase(fetchChatMembers.rejected, (state, action) => {
+                state.loading.members = false;
+                state.error = action.error.message;
+            })
+            .addCase(fetchChatMessages.pending, (state) => {
+                state.loading.messages = true;
+                state.error = null;
+            })
+            .addCase(fetchChatMessages.fulfilled, (state, action) => {
+                state.loading.messages = false;
+                if (state.activeChat.id === action.payload.chatId) {
+                    state.activeChat.messages = action.payload.messages;
+                }
+            })
+            .addCase(fetchChatMessages.rejected, (state, action) => {
+                state.loading.messages = false;
                 state.error = action.error.message;
             });
     }

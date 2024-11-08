@@ -1,7 +1,5 @@
-// api/privateChat.api.js
 import apiClient from './axios';
 import {store} from "../redux/store";
-
 
 export const privateChatApi = {
     getPrivateChats: () =>
@@ -9,6 +7,9 @@ export const privateChatApi = {
 
     getChatMessages: (chatId) =>
         apiClient.get(`/private-message/${chatId}`),
+
+    getChatMembers: (chatId) =>
+        apiClient.get(`/private-chat/${chatId}/members`),
 
     sendMessage: (chatId, message) =>
         apiClient.post(`/private-message/${chatId}`, null, {
@@ -24,30 +25,31 @@ export const privateChatApi = {
         }),
 
     sendFile: (chatId, file) => {
-            const formData = new FormData();
-            formData.append('file', file);
+        const formData = new FormData();
+        formData.append('file', file);
 
-            return apiClient.post(`/private-file/${chatId}`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                },
-                onUploadProgress: (progressEvent) => {
-                    const percentCompleted = Math.round(
-                        (progressEvent.loaded * 100) / progressEvent.total
-                    );
-                    // Dispatch action to update progress
-                    store.dispatch({
-                        type: 'chats/updateFileUploadProgress',
-                        payload: percentCompleted
-                    });
-                }
-            });
-
+        return apiClient.post(`/private-file/${chatId}`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            },
+            onUploadProgress: (progressEvent) => {
+                const percentCompleted = Math.round(
+                    (progressEvent.loaded * 100) / progressEvent.total
+                );
+                // Dispatch action to update progress
+                store.dispatch({
+                    type: 'chats/updateFileUploadProgress',
+                    payload: percentCompleted
+                });
+            }
+        });
     },
+
     searchMessages: (chatId, query) =>
         apiClient.get(`/private-message/${chatId}/search`, {
             params: { query }
         }),
+
     getFiles: (chatId) =>
         apiClient.get(`/private-file/${chatId}`),
 

@@ -17,9 +17,6 @@ const ChatList = () => {
     const currentUser = useSelector(state => state.auth.user);
     const { chats, filter, activeChat, unreadMessages } = useSelector(state => state.chats);
 
-    console.log('Current user:', currentUser); // Для отладки
-    console.log('Chats:', chats); // Для отладки
-
     const filteredChats = React.useMemo(() => {
         let result = [];
         if (filter === 'all' || filter === 'private') {
@@ -32,48 +29,34 @@ const ChatList = () => {
     }, [chats, filter]);
 
     const getOtherParticipant = (chat) => {
-        // Проверяем, что у нас есть текущий пользователь и участники чата
         if (!currentUser || !chat.participants) {
-            console.warn('Missing current user or chat participants');
             return null;
         }
 
-        // Отладочная информация
-        console.log('Chat participants:', chat.participants);
-        console.log('Current user ID:', currentUser.id);
-
-        let otherUser;
-        if (chat.participants.sender.id === currentUser.id) {
-            otherUser = chat.participants.receiver;
-        } else if (chat.participants.receiver.id === currentUser.id) {
-            otherUser = chat.participants.sender;
-        } else {
-            console.warn('Current user not found in chat participants');
-            return null;
-        }
-
-        return otherUser;
+        const { sender, receiver } = chat.participants;
+        return sender.id === currentUser.id ? receiver : sender;
     };
 
     const getChatInfo = (chat) => {
         if (chat.type === 'private') {
             const otherUser = getOtherParticipant(chat);
 
-            // Отладочная информация
-            console.log('Other user:', otherUser);
-
-            // Если не удалось определить собеседника, возвращаем запасной вариант
             if (!otherUser) {
                 return {
                     name: 'Неизвестный пользователь',
+                    displayName: 'Неизвестный пользователь',
                     userId: null,
                     online: false,
                     isGroup: false
                 };
             }
 
+            const displayName = otherUser.nickname || otherUser.username;
+            const secondaryName = otherUser.nickname ? `@${otherUser.username}` : null;
+
             return {
-                name: otherUser.nickname || otherUser.username,
+                name: displayName,
+                secondaryName,
                 username: otherUser.username,
                 userId: otherUser.id,
                 online: chat.online,
@@ -83,6 +66,7 @@ const ChatList = () => {
 
         return {
             name: chat.name,
+            displayName: chat.name,
             description: chat.description,
             userId: null,
             membersCount: chat.members?.length || 0,
@@ -111,9 +95,6 @@ const ChatList = () => {
             {filteredChats.map((chat) => {
                 const info = getChatInfo(chat);
                 const isActive = activeChat.id === chat.id && activeChat.type === chat.type;
-
-                // Отладочная информация
-                console.log('Chat info:', info);
 
                 return (
                     <ListItemButton
@@ -153,6 +134,15 @@ const ChatList = () => {
                             }
                             secondary={
                                 <Box>
+                                    {info.secondaryName && (
+                                        <Typography
+                                            variant="caption"
+                                            color="text.secondary"
+                                            sx={{ display: 'block' }}
+                                        >
+                                            {info.secondaryName}
+                                        </Typography>
+                                    )}
                                     {chat.lastMessage && (
                                         <Typography
                                             variant="body2"
