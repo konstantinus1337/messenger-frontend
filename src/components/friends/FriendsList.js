@@ -1,5 +1,6 @@
-import React from 'react';
-import { useSelector } from 'react-redux';
+// FriendsList.js
+import React, { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
     List,
     ListItem,
@@ -7,14 +8,19 @@ import {
     ListItemText,
     ListItemSecondaryAction,
     IconButton,
-    Badge,
-    styled,
+    Typography,
     Stack,
-    Avatar    // Добавлен импорт Avatar
+    Badge,
+    styled
 } from '@mui/material';
 import { Delete as DeleteIcon } from '@mui/icons-material';
+import UserAvatar from '../common/UserAvatar';
 import StartChatButton from './StartChatButton';
+import { fetchFriends } from '../../redux/slices/friendsSlice';
+import { useFriendsWebSocket } from '../../hooks/useFriendsWebSocket';
+import UserSearch from "./UserSearch";
 
+// Стилизованный компонент для индикатора онлайн статуса
 const OnlineBadge = styled(Badge)(({ theme }) => ({
     '& .MuiBadge-badge': {
         backgroundColor: '#44b700',
@@ -44,15 +50,37 @@ const OnlineBadge = styled(Badge)(({ theme }) => ({
     },
 }));
 
-const FriendsList = ({ onDelete }) => {
+const FriendsList = () => {
+    const dispatch = useDispatch();
     const { friendsList } = useSelector(state => state.friends);
-    const onlineStatuses = useSelector(state => state.friends.onlineStatuses);
+    const { onlineStatuses } = useSelector(state => state.friends);
+    const { isConnected, deleteFriend } = useFriendsWebSocket();
+
+    useEffect(() => {
+        dispatch(fetchFriends());
+    }, [dispatch]);
+
+    const handleDeleteFriend = async (friendId) => {
+        try {
+            await deleteFriend(friendId);
+        } catch (error) {
+            console.error('Error deleting friend:', error);
+            // Здесь можно добавить отображение ошибки пользователю
+        }
+    };
+
+    if (!friendsList.length) {
+        return (
+            <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+                У вас пока нет друзей. Найдите новых друзей с помощью поиска!
+            </Typography>
+        );
+    }
 
     return (
         <List>
             {friendsList.map((friend) => {
-                const statusData = onlineStatuses[friend.id];
-                const isOnline = statusData?.status === 'ONLINE';
+                const isOnline = onlineStatuses[friend.id]?.status === 'ONLINE';
 
                 return (
                     <ListItem key={friend.id}>
@@ -63,12 +91,11 @@ const FriendsList = ({ onDelete }) => {
                                 variant="dot"
                                 invisible={!isOnline}
                             >
-                                <Avatar
-                                    src={friend.avatar}
-                                    alt={friend.username}
-                                >
-                                    {friend.username[0].toUpperCase()}
-                                </Avatar>
+                                <UserAvatar
+                                    userId={friend.id}
+                                    username={friend.username}
+                                    size={40}
+                                />
                             </OnlineBadge>
                         </ListItemAvatar>
                         <ListItemText
@@ -76,7 +103,7 @@ const FriendsList = ({ onDelete }) => {
                             secondary={
                                 <>
                                     {friend.nickname && `@${friend.username} • `}
-                                    {isOnline ? 'Online' : 'Offline'}
+                                    {isOnline ? 'В сети' : 'Не в сети'}
                                 </>
                             }
                         />
@@ -85,9 +112,10 @@ const FriendsList = ({ onDelete }) => {
                                 <StartChatButton friendId={friend.id} />
                                 <IconButton
                                     edge="end"
-                                    onClick={() => onDelete(friend.id)}
+                                    onClick={() => handleDeleteFriend(friend.id)}
                                     color="error"
                                     size="small"
+                                    disabled={!isConnected}
                                 >
                                     <DeleteIcon />
                                 </IconButton>
@@ -99,5 +127,4 @@ const FriendsList = ({ onDelete }) => {
         </List>
     );
 };
-
 export default FriendsList;

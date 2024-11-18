@@ -1,0 +1,97 @@
+src/
+├── api/
+│   ├── axios.js               # Базовая конфигурация axios
+│   ├── auth.api.js            # API для авторизации
+│   ├── privateChat.api.js     # API для приватных чатов
+│   ├── groupChat.api.js       # API для групповых чатов
+│   ├── friends.api.js         # API для работы с друзьями
+│   ├── profile.api.js         # API для профиля пользователя
+│   └── websocket.js           # Конфигурация WebSocket
+│
+├── components/
+│   ├── auth/
+│   │   ├── LoginForm.js       # Форма входа
+│   │   └── RegisterForm.js    # Форма регистрации
+│   │
+│   ├── chats/
+│   │   ├── ChatsSidebar/
+│   │   │   ├── ChatList.js           # Список чатов
+│   │   │   ├── ChatSearch.js         # Поиск по чатам
+│   │   │   └── ChatFilter.js         # Фильтр чатов (все/личные/группы)
+│   │   │
+│   │   ├── ChatWindow/
+│   │   │   ├── ChatHeader.js         # Шапка чата
+│   │   │   ├── MessageList.js        # Список сообщений
+│   │   │   ├── MessageItem.js        # Компонент сообщения
+│   │   │   ├── MessageInput.js       # Ввод сообщений
+│   │   │   ├── FileUploadButton.js   # Кнопка загрузки файлов
+│   │   │   └── MessageSearch.js      # Поиск по сообщениям
+│   │   │
+│   │   └── ChatInfo/
+│   │       ├── UserInfo.js           # Информация о пользователе
+│   │       ├── GroupInfo.js          # Информация о группе
+│   │       ├── SharedFiles.js        # Общие файлы
+│   │       └── SharedMedia.js        # Общие медиафайлы
+│   │
+│   ├── friends/
+│   │   ├── FriendsList.js     # Список друзей
+│   │   └── UserSearch.js      # Поиск пользователей
+│   │
+│   ├── profile/
+│   │   ├── NavigationButtons.js    # Кнопки навигации
+│   │   ├── ProfileAvatar.js        # Аватар профиля
+│   │   ├── ProfileForm.js          # Форма профиля
+│   │   ├── ProfileInfo.js          # Информация о профиле
+│   │   ├── RecentsChats.js         # Последние чаты
+│   │   └── TopFriends.js          # Топ друзей
+│   │
+│   ├── settings/
+│   │   ├── AvatarUpload.js         # Загрузка аватара
+│   │   └── ProfileSettingsForm.js  # Настройки профиля
+│   │
+│   └── common/
+│       └── PrivateRoute.js         # Защищенный роут
+│
+├── hooks/
+│   ├── useAuth.js             # Хук для авторизации
+│   ├── useChat.js             # Хук для работы с чатом
+│   ├── useChatWebSocket.js    # Хук для WebSocket чата
+│   ├── useFriendsWebSocket.js # Хук для WebSocket друзей
+│   └── useProfile.js          # Хук для профиля
+│
+├── pages/
+│   ├── Auth/
+│   │   ├── Login.js           # Страница входа
+│   │   └── Register.js        # Страница регистрации
+│   │
+│   ├── Chats/
+│   │   └── Chats.js           # Страница чатов
+│   │
+│   ├── Friends/
+│   │   └── Friends.js         # Страница друзей
+│   │
+│   ├── Landing/
+│   │   └── Landing.js         # Главная страница
+│   │
+│   ├── Profile/
+│   │   └── Profile.js         # Профиль пользователя
+│   │
+│   └── Settings/
+│       └── Settings.js         # Настройки профиля
+│
+├── redux/
+│   ├── slices/
+│   │   ├── authSlice.js       # Slice для авторизации
+│   │   ├── chatsSlice.js      # Slice для чатов
+│   │   ├── friendsSlice.js    # Slice для друзей
+│   │   └── profileSlice.js    # Slice для профиля
+│   │
+│   └── store.js               # Конфигурация Redux store
+│
+├── utils/
+│   ├── constants.js           # Константы приложения
+│   ├── dateFormatter.js       # Форматирование дат
+│   └── tokenStorage.js        # Работа с JWT токеном
+│
+├── App.js                     # Основной компонент приложения
+└── index.js                   # Точка входа приложения

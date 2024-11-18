@@ -1,47 +1,68 @@
 import { useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { webSocketService } from '../api/websocket';
-import { updateFriendStatus, clearFriendStatuses, fetchFriends } from '../redux/slices/friendsSlice';
+import { friendsApi } from '../api/friends.api';
+import {
+    updateFriendStatus,
+    removeFriend,
+    addNewFriend,
+    clearFriendStatuses
+} from '../redux/slices/friendsSlice';
 
 export const useFriendsWebSocket = () => {
     const dispatch = useDispatch();
     const { friendsList } = useSelector(state => state.friends);
     const token = localStorage.getItem('token');
 
-    const handleStatusUpdate = useCallback((statusUpdate) => {
-        const { userId, status } = statusUpdate;
-        // Проверяем, является ли пользователь нашим другом
-        if (friendsList.some(friend => friend.id === userId)) {
-            console.log('Updating friend status:', userId, status);
-            dispatch(updateFriendStatus({ userId, status }));
+    const handleFriendUpdate = useCallback((update) => {
+        switch (update.type) {
+            case 'STATUS_CHANGE':
+                dispatch(updateFriendStatus({
+                    userId: update.userId,
+                    status: update.status
+                }));
+                break;
+            case 'FRIEND_ADDED':
+                dispatch(addNewFriend(update.friend));
+                break;
+            case 'FRIEND_REMOVED':
+                dispatch(removeFriend(update.friendId));
+                break;
+            default:
+                console.warn('Неизвестный тип обновления:', update.type);
         }
-    }, [friendsList, dispatch]);
+    }, [dispatch]);
 
     useEffect(() => {
         if (!token) return;
 
-        const setupWebSocket = async () => {
+        const setupConnection = async () => {
             try {
-                // Сначала подключаемся
-                await webSocketService.connect(token);
+                // Устанавливаем WebSocket соединение
+                await friendsApi.setupWebSocket(token);
 
-                // После успешного подключения подписываемся на обновления статусов
-                await webSocketService.subscribe('/user.status', handleStatusUpdate);
+                // Подписываемся на обновления друзей
+                await friendsApi.subscribeFriendUpdates(handleFriendUpdate);
 
-                // Запрашиваем актуальный список друзей
-                dispatch(fetchFriends());
             } catch (error) {
-                console.error('Error setting up WebSocket:', error);
+                console.error('Ошибка при настройке WebSocket:', error);
             }
         };
 
-        setupWebSocket();
+        setupConnection();
 
+        // Очистка при размонтировании
         return () => {
             dispatch(clearFriendStatuses());
-            webSocketService.disconnect();
+            friendsApi.unsubscribeFriendUpdates();
+            friendsApi.disconnectWebSocket();
         };
-    }, [token, handleStatusUpdate, dispatch]);
+    }, [token, handleFriendUpdate, dispatch]);
+
+    return {
+        isConnected: friendsApi.isWebSocketConnected(),
+        addFriend: friendsApi.addFriend,
+        deleteFriend: friendsApi.deleteFriend
+    };
 };
 
 export default useFriendsWebSocket;
