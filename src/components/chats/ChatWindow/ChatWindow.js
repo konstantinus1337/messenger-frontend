@@ -22,23 +22,14 @@ const ChatWindow = () => {
         }
     }, [activeChat.id, activeChat.type, dispatch]);
 
-    if (!activeChat.id) {
-        return (
-            <Box
-                sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '100%',
-                    bgcolor: 'background.default'
-                }}
-            >
-                <Typography variant="h6" color="text.secondary">
-                    Выберите чат для начала общения
-                </Typography>
-            </Box>
-        );
-    }
+    const handleSendMessage = async (message) => {
+        try {
+            await sendMessage(activeChat.id, message);
+        } catch (error) {
+            console.error('Error sending message:', error);
+            // Здесь можно добавить обработку ошибки, например показ уведомления
+        }
+    };
 
     return (
         <Paper
@@ -51,7 +42,7 @@ const ChatWindow = () => {
         >
             <ChatHeader />
             <MessageList />
-            <MessageInput onSendMessage={sendMessage} />
+            <MessageInput onSendMessage={handleSendMessage} />
         </Paper>
     );
 };

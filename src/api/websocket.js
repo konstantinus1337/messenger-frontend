@@ -38,7 +38,9 @@ class WebSocketService {
 
                 // Добавляем Bearer префикс к токену
                 const headers = {
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${token}`,
+                    'heart-beat': '0,0',
+                    'accept-version': '1.1,1.0',
                 };
 
                 this.stompClient.connect(
@@ -105,18 +107,17 @@ class WebSocketService {
     }
 
     async subscribe(destination, callback) {
-        console.log(`Subscribing to ${destination}...`);
+        console.log(`Attempting to subscribe to ${destination}`);
         try {
-            // Убеждаемся, что соединение установлено
             const client = await this.connect(localStorage.getItem('token'));
 
-            // Отписываемся от предыдущей подписки на этот destination, если она есть
+            // Отписываемся от предыдущей подписки, если она существует
             if (this.subscriptions.has(destination)) {
-                this.subscriptions.get(destination).unsubscribe();
+                this.unsubscribeFromDestination(destination);
             }
 
             const subscription = client.subscribe(destination, (message) => {
-                console.log(`Received message from ${destination}:`, message);
+                console.log(`Received message on ${destination}:`, message);
                 try {
                     const payload = JSON.parse(message.body);
                     callback(payload);
@@ -128,10 +129,47 @@ class WebSocketService {
             this.subscriptions.set(destination, subscription);
             console.log(`Successfully subscribed to ${destination}`);
             return subscription;
-
         } catch (error) {
             console.error(`Error subscribing to ${destination}:`, error);
             throw error;
+        }
+    }
+
+    // Добавляем метод для отписки от конкретного destination
+    unsubscribeFromDestination(destination) {
+        if (this.subscriptions.has(destination)) {
+            const subscription = this.subscriptions.get(destination);
+            subscription.unsubscribe();
+            this.subscriptions.delete(destination);
+            console.log(`Unsubscribed from ${destination}`);
+        }
+    }
+
+    // Добавляем общий метод unsubscribe
+    unsubscribe(destination) {
+        if (destination) {
+            this.unsubscribeFromDestination(destination);
+        } else {
+            // Если destination не указан, отписываемся от всех подписок
+            this.subscriptions.forEach((subscription, dest) => {
+                subscription.unsubscribe();
+                console.log(`Unsubscribed from ${dest}`);
+            });
+            this.subscriptions.clear();
+        }
+    }
+
+    disconnect() {
+        console.log('Disconnecting WebSocket...');
+        // Сначала отписываемся от всех подписок
+        this.unsubscribe();
+
+        if (this.stompClient && this.connected) {
+            this.stompClient.disconnect(() => {
+                console.log('WebSocket Disconnected');
+                this.connected = false;
+                this.stompClient = null;
+            });
         }
     }
 
@@ -154,23 +192,7 @@ class WebSocketService {
         }
     }
 
-    disconnect() {
-        console.log('Disconnecting WebSocket...');
-        if (this.stompClient && this.connected) {
-            // Сначала отписываемся от всех подписок
-            this.subscriptions.forEach(subscription => subscription.unsubscribe());
-            this.subscriptions.clear();
-
-            this.stompClient.disconnect(() => {
-                console.log('WebSocket Disconnected');
-                this.connected = false;
-                this.stompClient = null;
-                this.notifyConnectionListeners(false);
-            });
-        }
-    }
-
-    unsubscribeFromChat(chatId) {
+        unsubscribeFromChat(chatId) {
         console.log(`Unsubscribing from chat ${chatId}...`);
         const chatDestinations = [
             `/chat.${chatId}.messages`,

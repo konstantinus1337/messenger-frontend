@@ -1,6 +1,7 @@
 // hooks/useChatWebSocket.js
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { getUserIdFromToken } from '../utils/jwtUtils';  // Добавляем этот импорт
 import { webSocketService } from '../api/websocket';
 import {
     messageReceived,
@@ -19,9 +20,23 @@ export const useChatWebSocket = () => {
     const typingTimeoutRef = useRef({});
 
     const handleMessageReceived = useCallback((message) => {
-        console.log('Received message:', message);
-        dispatch(messageReceived({ message }));
-    }, [dispatch]);
+        console.log('Received message:', message);const formattedMessage = {
+            id: message.id,
+            chatId: message.privateChatId || message.groupChatId, // учитываем оба типа чатов
+            type: activeChat.type,
+            text: message.message,
+            timestamp: message.sendTime,
+            sender: {
+                id: message.senderId,
+                username: message.senderUsername,
+                nickname: message.senderNickname
+            },
+            read: false
+        };
+
+        console.log('Dispatching formatted message:', formattedMessage);
+        dispatch(messageReceived({ message: formattedMessage }));
+    }, [dispatch, activeChat.type]);
 
     const handleMessageRead = useCallback((data) => {
         console.log('Message read:', data);
@@ -69,35 +84,20 @@ export const useChatWebSocket = () => {
                 await webSocketService.connect(token);
                 handleConnectionStatus(true);
 
-                if (activeChat.type === 'private') {
-                    // Подписки для приватных чатов
-                    await webSocketService.subscribe('/user.messages', handleMessageReceived);
-                    await webSocketService.subscribe('/message.read', handleMessageRead);
-                    await webSocketService.subscribe('/message.deleted', handleMessageDeleted);
-                    await webSocketService.subscribe('/message.edited', handleMessageEdited);
-                    await webSocketService.subscribe('/user.typing', handleTypingStatus);
+                if (activeChat.id) {
+                    // Подписываемся на сообщения чата
+                    const topicDestination = activeChat.type === 'private'
+                        ? `/topic/private-message.${activeChat.id}`
+                        : `/topic/group-message.${activeChat.id}`;
 
-                    if (activeChat.id) {
-                        await webSocketService.subscribe(
-                            `/private-chat/${activeChat.id}/messages`,
-                            handleMessageReceived
-                        );
-                    }
-                } else {
-                    // Подписки для групповых чатов
-                    await webSocketService.subscribe('/group.messages', handleMessageReceived);
-                    await webSocketService.subscribe('/message.read', handleMessageRead);
-                    await webSocketService.subscribe('/message.deleted', handleMessageDeleted);
-                    await webSocketService.subscribe('/message.edited', handleMessageEdited);
-                    await webSocketService.subscribe('/group.typing', handleTypingStatus);
+                    await webSocketService.subscribe(
+                        topicDestination,
+                        handleMessageReceived
+                    );
 
-                    if (activeChat.id) {
-                        await webSocketService.subscribe(
-                            `/group-chat/${activeChat.id}/messages`,
-                            handleMessageReceived
-                        );
-                    }
+                    console.log(`Subscribed to ${topicDestination}`);
                 }
+
             } catch (error) {
                 console.error('Failed to setup WebSocket:', error);
                 handleConnectionStatus(false);
@@ -105,15 +105,21 @@ export const useChatWebSocket = () => {
         };
 
         setupWebSocket();
-        webSocketService.addConnectionListener(handleConnectionStatus);
 
+        // Cleanup function
         return () => {
-            Object.values(typingTimeoutRef.current).forEach(clearTimeout);
-            typingTimeoutRef.current = {};
-            webSocketService.removeConnectionListener(handleConnectionStatus);
-            webSocketService.disconnect();
+            if (activeChat.id) {
+                const topicDestination = activeChat.type === 'private'
+                    ? `/topic/private-message.${activeChat.id}`
+                    : `/topic/group-message.${activeChat.id}`;
+
+                // Используем unsubscribeFromDestination вместо unsubscribe
+                webSocketService.unsubscribeFromDestination(topicDestination);
+            }
+            // Отключаем WebSocket только если компонент полностью размонтируется
+            // webSocketService.disconnect();
         };
-    }, [token, activeChat.id, activeChat.type, handleConnectionStatus, handleMessageReceived]);
+    }, [token, activeChat.id, activeChat.type]);
 
     const sendMessage = useCallback(async (chatId, message) => {
         if (!isConnected) {
@@ -122,15 +128,23 @@ export const useChatWebSocket = () => {
         }
 
         const destination = activeChat.type === 'private'
-            ? '/app/privateMessage.send'  // Добавляем префикс /app
+            ? '/app/privateMessage.send'
             : '/app/group.send';
 
         console.log(`Sending message to ${destination}:`, { chatId, message });
 
-        await webSocketService.send(destination, {
-            chatId: parseInt(chatId, 10),  // Убеждаемся, что chatId - это число
-            message: message
-        });
+        try {
+            await webSocketService.send(destination, {
+                chatId: parseInt(chatId, 10),
+                message: message
+            });
+
+            // Добавим логирование для отладки
+            console.log('Message sent successfully');
+        } catch (error) {
+            console.error('Error sending message:', error);
+            throw error;
+        }
     }, [activeChat.type, isConnected, token]);
 
     const sendTypingStatus = useCallback(async (chatId, isTyping) => {

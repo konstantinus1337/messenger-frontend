@@ -160,21 +160,20 @@ const chatsSlice = createSlice({
 
         messageReceived: (state, action) => {
             const { message } = action.payload;
-            const isActiveChat = state.activeChat.id === message.chatId;
 
-            // Update messages in active chat
-            if (isActiveChat) {
-                state.activeChat.messages.push(message);
-            } else {
-                // Increment unread messages counter
-                state.unreadMessages[message.chatId] =
-                    (state.unreadMessages[message.chatId] || 0) + 1;
+            // Проверяем, относится ли сообщение к активному чату
+            if (state.activeChat.id === message.chatId) {
+                // Добавляем сообщение в список, если его там еще нет
+                const messageExists = state.activeChat.messages.some(m => m.id === message.id);
+                if (!messageExists) {
+                    state.activeChat.messages.push(message);
+                }
             }
 
-            // Update last message in chat list
-            const chatType = message.type;
+            // Обновляем последнее сообщение в списке чатов
+            const chatType = state.activeChat.type;
             const chatList = state.chats[chatType];
-            const chat = chatList.find(c => c.id === message.chatId);
+            const chat = chatList?.find(c => c.id === message.chatId);
             if (chat) {
                 chat.lastMessage = message.text;
                 chat.lastMessageDate = message.timestamp;
