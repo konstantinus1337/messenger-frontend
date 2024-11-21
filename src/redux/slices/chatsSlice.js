@@ -1,3 +1,4 @@
+// redux/slices/chatsSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { privateChatApi } from '../../api/privateChat.api';
 import { groupChatApi } from '../../api/groupChat.api';
@@ -11,8 +12,6 @@ export const fetchChats = createAsyncThunk(
             groupChatApi.getGroupChats()
         ]);
 
-
-
         // Transform private chats to common format
         const transformedPrivateChats = privateChats.data.map(chat => ({
             id: chat.id,
@@ -20,8 +19,8 @@ export const fetchChats = createAsyncThunk(
             name: chat.receiverNickname || chat.receiverUsername,
             username: chat.receiverUsername,
             nickname: chat.receiverNickname,
-            avatar: null, // Add if available from API
-            lastMessage: null, // Add if available from API
+            avatar: null,
+            lastMessage: null,
             lastMessageDate: chat.createdAt,
             participants: {
                 sender: {
@@ -42,8 +41,8 @@ export const fetchChats = createAsyncThunk(
             type: 'group',
             name: chat.name,
             description: chat.description,
-            avatar: null, // Add if available from API
-            lastMessage: null, // Add if available from API
+            avatar: null,
+            lastMessage: null,
             lastMessageDate: chat.createdAt,
             members: chat.members.map(member => ({
                 id: member.memberId,
@@ -59,18 +58,6 @@ export const fetchChats = createAsyncThunk(
         };
     }
 );
-export const fetchChatMembers = createAsyncThunk(
-    'chats/fetchChatMembers',
-    async ({ chatId, chatType }) => {
-        const api = chatType === 'private' ? privateChatApi : groupChatApi;
-        const response = await api.getChatMembers(chatId);
-
-        return {
-            chatId,
-            members: response.data
-        };
-    }
-);
 
 export const fetchChatMessages = createAsyncThunk(
     'chats/fetchChatMessages',
@@ -78,24 +65,20 @@ export const fetchChatMessages = createAsyncThunk(
         const api = chatType === 'private' ? privateChatApi : groupChatApi;
         const response = await api.getChatMessages(chatId);
 
-        // Трансформируем сообщения в единый формат
         const transformedMessages = response.data.map(message => ({
             id: message.id,
-            chatId: chatType === 'private' ? message.privateChatId : message.groupChatId,
+            chatId: message.chatId,
             type: chatType,
             text: message.message,
-            timestamp: message.sendTime || message.timestamp,
+            timestamp: message.sendTime,
+            edited: message.edited || false,
             sender: {
                 id: message.senderId,
                 username: message.senderUsername,
                 nickname: message.senderNickname
             },
-            receiver: chatType === 'private' ? {
-                id: message.receiverId,
-                username: message.receiverUsername,
-                nickname: message.receiverNickname
-            } : null,
-            read: message.read || false
+            read: message.read || false,
+            files: message.files || []
         }));
 
         return {
@@ -105,136 +88,137 @@ export const fetchChatMessages = createAsyncThunk(
     }
 );
 
-
-export const sendMessage = createAsyncThunk(
-    'chats/sendMessage',
-    async ({ chatId, chatType, message }) => {
-        const api = chatType === 'private' ? privateChatApi : groupChatApi;
-        const response = await api.sendMessage(chatId, message);
-
-        // Transform response to common format
-        const transformedMessage = {
-            id: response.data.id,
-            chatId: chatType === 'private' ? response.data.privateChatId : response.data.groupChatId,
-            type: chatType,
-            text: response.data.message,
-            timestamp: response.data.sendTime,
-            sender: {
-                id: response.data.senderId,
-                username: response.data.senderUsername,
-                nickname: response.data.senderNickname
-            },
-            receiver: chatType === 'private' ? {
-                username: response.data.receiverUsername,
-                nickname: response.data.receiverNickname
-            } : null
-        };
-
-        return transformedMessage;
-    }
-);
-
-
 const chatsSlice = createSlice({
     name: 'chats',
     initialState: {
         chats: {
             private: [],
             group: [],
-            typing: {},
-            wsConnected: false
         },
         activeChat: {
             id: null,
             type: null,
             messages: [],
-            members: []
+            typing: {}, // { userId: timestamp }
+            loadingMore: false,
+            hasMore: true,
+            page: 1
+        },
+        wsConnected: false,
+        messageSearch: {
+            isOpen: false,
+            query: '',
+            results: [],
+            currentIndex: -1,
+            loading: false
         },
         loading: {
             chats: false,
             messages: false,
-            members: false,
-            sending: false
+            sending: false,
+            files: false
         },
-        fileUpload: {
-            loading: false,
-            progress: 0
-        },
+        unreadMessages: {}, // { chatId: count }
         error: null,
-        unreadMessages: {},
+        filter: 'all', // 'all' | 'private' | 'group'
         rightPanelOpen: false,
-        filter: 'all'
+        uploadProgress: {} // { fileId: progress }
     },
     reducers: {
+        setWsConnected: (state, action) => {
+            state.wsConnected = action.payload;
+        },
+
         setActiveChat: (state, action) => {
             const { id, type } = action.payload;
-            state.activeChat.id = id;
-            state.activeChat.type = type;
-            state.activeChat.messages = [];
+            state.activeChat = {
+                ...state.activeChat,
+                id,
+                type,
+                messages: [],
+                typing: {},
+                page: 1,
+                hasMore: true
+            };
+            // Clear unread messages for this chat
+            if (state.unreadMessages[id]) {
+                delete state.unreadMessages[id];
+            }
         },
+
         clearActiveChat: (state) => {
             state.activeChat = {
                 id: null,
                 type: null,
-                messages: []
+                messages: [],
+                typing: {},
+                loadingMore: false,
+                hasMore: true,
+                page: 1
             };
         },
-        toggleRightPanel: (state) => {
-            state.rightPanelOpen = !state.rightPanelOpen;
-        },
-        setFilter: (state, action) => {
-            state.filter = action.payload;
-        },
-        // WebSocket actions
+
         messageReceived: (state, action) => {
-            const message = action.payload;
-            if (state.activeChat.id === message.chatId) {
-                state.activeChat.messages.push({
-                    id: message.id,
-                    chatId: message.chatId,
-                    type: message.type,
-                    text: message.text,
-                    timestamp: message.timestamp,
-                    sender: message.sender,
-                    receiver: message.receiver
-                });
+            const { message } = action.payload;
+            const isActiveChat = state.activeChat.id === message.chatId;
+
+            // Update messages in active chat
+            if (isActiveChat) {
+                state.activeChat.messages.push(message);
+            } else {
+                // Increment unread messages counter
+                state.unreadMessages[message.chatId] =
+                    (state.unreadMessages[message.chatId] || 0) + 1;
             }
 
             // Update last message in chat list
-            const chatType = message.type === 'private' ? 'private' : 'group';
-            const chat = state.chats[chatType].find(c => c.id === message.chatId);
+            const chatType = message.type;
+            const chatList = state.chats[chatType];
+            const chat = chatList.find(c => c.id === message.chatId);
             if (chat) {
                 chat.lastMessage = message.text;
                 chat.lastMessageDate = message.timestamp;
             }
         },
+
         messageRead: (state, action) => {
             const { messageId, chatId } = action.payload;
+
+            // Update message status in active chat
             if (state.activeChat.id === chatId) {
                 const message = state.activeChat.messages.find(m => m.id === messageId);
                 if (message) {
                     message.read = true;
                 }
             }
-
-            // Update unread counter
-            if (state.unreadMessages[chatId]) {
-                state.unreadMessages[chatId]--;
-                if (state.unreadMessages[chatId] <= 0) {
-                    delete state.unreadMessages[chatId];
-                }
-            }
         },
+
         messageDeleted: (state, action) => {
             const { messageId, chatId } = action.payload;
+
+            // Remove message from active chat
             if (state.activeChat.id === chatId) {
                 state.activeChat.messages = state.activeChat.messages.filter(
                     m => m.id !== messageId
                 );
             }
+
+            // Update last message in chat list if needed
+            const chatType = state.activeChat.type;
+            if (chatType) {
+                const chat = state.chats[chatType].find(c => c.id === chatId);
+                if (chat && chat.lastMessage?.id === messageId) {
+                    const lastMessage = state.activeChat.messages[state.activeChat.messages.length - 1];
+                    chat.lastMessage = lastMessage ? lastMessage.text : null;
+                    chat.lastMessageDate = lastMessage ? lastMessage.timestamp : chat.lastMessageDate;
+                }
+            }
         },
+
         messageEdited: (state, action) => {
             const { messageId, chatId, text } = action.payload;
+
+            // Update message in active chat
             if (state.activeChat.id === chatId) {
                 const message = state.activeChat.messages.find(m => m.id === messageId);
                 if (message) {
@@ -242,40 +226,85 @@ const chatsSlice = createSlice({
                     message.edited = true;
                 }
             }
+
+            // Update last message in chat list if needed
+            const chatType = state.activeChat.type;
+            if (chatType) {
+                const chat = state.chats[chatType].find(c => c.id === chatId);
+                if (chat && chat.lastMessage?.id === messageId) {
+                    chat.lastMessage = text;
+                }
+            }
         },
+
         typingStatusChanged: (state, action) => {
             const { chatId, userId, isTyping } = action.payload;
-            if (!state.chats.typing[chatId]) {
-                state.chats.typing[chatId] = {};
-            }
-            if (isTyping) {
-                state.chats.typing[chatId][userId] = Date.now();
-            } else {
-                delete state.chats.typing[chatId][userId];
+
+            if (state.activeChat.id === chatId) {
+                if (isTyping) {
+                    state.activeChat.typing[userId] = Date.now();
+                } else {
+                    delete state.activeChat.typing[userId];
+                }
             }
         },
-        userStatusChanged: (state, action) => {
-            const { userId, status } = action.payload;
-            // Update user status in private chats
-            state.chats.private.forEach(chat => {
-                if (chat.participants.receiver.id === userId ||
-                    chat.participants.sender.id === userId) {
-                    chat.online = status === 'ONLINE';
-                    chat.lastSeen = Date.now();
-                }
-            });
-            // Update user status in group chats
-            state.chats.group.forEach(chat => {
-                const member = chat.members.find(m => m.id === userId);
-                if (member) {
-                    member.online = status === 'ONLINE';
-                    member.lastSeen = Date.now();
-                }
-            });
+
+        fileUploadProgressChanged: (state, action) => {
+            const { fileId, progress } = action.payload;
+            state.uploadProgress[fileId] = progress;
+
+            // Clean up completed uploads
+            if (progress === 100) {
+                setTimeout(() => {
+                    delete state.uploadProgress[fileId];
+                }, 1000);
+            }
+        },
+
+        toggleMessageSearch: (state) => {
+            state.messageSearch.isOpen = !state.messageSearch.isOpen;
+            if (!state.messageSearch.isOpen) {
+                state.messageSearch.query = '';
+                state.messageSearch.results = [];
+                state.messageSearch.currentIndex = -1;
+            }
+        },
+
+        setSearchQuery: (state, action) => {
+            state.messageSearch.query = action.payload;
+        },
+
+        setSearchResults: (state, action) => {
+            state.messageSearch.results = action.payload;
+            state.messageSearch.currentIndex = action.payload.length > 0 ? 0 : -1;
+        },
+
+        navigateSearchResults: (state, action) => {
+            const direction = action.payload;
+            const { results, currentIndex } = state.messageSearch;
+
+            if (results.length === 0) return;
+
+            if (direction === 'next') {
+                state.messageSearch.currentIndex =
+                    currentIndex + 1 >= results.length ? 0 : currentIndex + 1;
+            } else {
+                state.messageSearch.currentIndex =
+                    currentIndex - 1 < 0 ? results.length - 1 : currentIndex - 1;
+            }
+        },
+
+        toggleRightPanel: (state) => {
+            state.rightPanelOpen = !state.rightPanelOpen;
+        },
+
+        setFilter: (state, action) => {
+            state.filter = action.payload;
         }
     },
     extraReducers: (builder) => {
         builder
+            // Fetch Chats
             .addCase(fetchChats.pending, (state) => {
                 state.loading.chats = true;
                 state.error = null;
@@ -288,19 +317,9 @@ const chatsSlice = createSlice({
             .addCase(fetchChats.rejected, (state, action) => {
                 state.loading.chats = false;
                 state.error = action.error.message;
-            }).addCase(fetchChatMembers.pending, (state) => {
-            state.loading.members = true;
-        })
-            .addCase(fetchChatMembers.fulfilled, (state, action) => {
-                state.loading.members = false;
-                if (state.activeChat.id === action.payload.chatId) {
-                    state.activeChat.members = action.payload.members;
-                }
             })
-            .addCase(fetchChatMembers.rejected, (state, action) => {
-                state.loading.members = false;
-                state.error = action.error.message;
-            })
+
+            // Fetch Messages
             .addCase(fetchChatMessages.pending, (state) => {
                 state.loading.messages = true;
                 state.error = null;
@@ -319,16 +338,21 @@ const chatsSlice = createSlice({
 });
 
 export const {
+    setWsConnected,
     setActiveChat,
     clearActiveChat,
-    toggleRightPanel,
-    setFilter,
     messageReceived,
     messageRead,
     messageDeleted,
     messageEdited,
     typingStatusChanged,
-    userStatusChanged
+    fileUploadProgressChanged,
+    toggleMessageSearch,
+    setSearchQuery,
+    setSearchResults,
+    navigateSearchResults,
+    toggleRightPanel,
+    setFilter
 } = chatsSlice.actions;
 
 export default chatsSlice.reducer;

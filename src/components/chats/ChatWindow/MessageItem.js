@@ -1,108 +1,177 @@
-import React from 'react';
+// components/chats/ChatWindow/MessageItem.js
+import React, { useState } from 'react';
 import {
     Box,
     Typography,
-    Paper,
-    styled
+    IconButton,
+    Menu,
+    MenuItem,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
+    TextField
 } from '@mui/material';
-import { formatMessageDate } from '../../../utils/dateFormatter';
+import {
+    MoreVert as MoreVertIcon,
+    Done as DoneIcon,
+    DoneAll as DoneAllIcon
+} from '@mui/icons-material';
 import { useSelector } from 'react-redux';
+import { formatMessageDate } from '../../../utils/dateFormatter';
 import UserAvatar from '../../common/UserAvatar';
 
-const MessageBubble = styled(Paper)(({ theme, isown }) => ({
-    padding: theme.spacing(1.5),
-    minWidth: '100px',
-    maxWidth: '60%',
-    width: 'fit-content',
-    borderRadius: 12,
-    wordBreak: 'break-word',
-    ...(isown === 'true' ? {
-        backgroundColor: theme.palette.primary.main,
-        color: theme.palette.primary.contrastText,
-        borderBottomRightRadius: 4,
-        marginLeft: 'auto', // Выравнивание справа
-        '& .MuiTypography-timestamp': {
-            color: `${theme.palette.primary.contrastText}80`
-        }
-    } : {
-        backgroundColor: theme.palette.background.paper,
-        color: theme.palette.text.primary,
-        borderBottomLeftRadius: 4,
-        marginRight: 'auto', // Выравнивание слева
-        '& .MuiTypography-timestamp': {
-            color: theme.palette.text.secondary
-        }
-    })
-}));
+const MessageItem = ({
+                         message,
+                         onEdit,
+                         onDelete,
+                         isLastInGroup
+                     }) => {
+    const currentUser = useSelector(state => state.auth.user);
+    const isOwnMessage = message.sender.id === currentUser?.id;
 
-const MessageWrapper = styled(Box)(({ theme, isown }) => ({
-    display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: theme.spacing(1),
-    width: '100%',
-    ...(isown === 'true' ? {
-        flexDirection: 'row-reverse',
-    } : {
-        flexDirection: 'row',
-    })
-}));
+    const [anchorEl, setAnchorEl] = useState(null);
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [editedText, setEditedText] = useState(message.text);
 
-const MessageContainer = styled(Box)({
-    width: '100%',
-    marginBottom: '8px',
-});
+    const handleMenuOpen = (event) => {
+        setAnchorEl(event.currentTarget);
+    };
 
-const MessageItem = ({ message, showAvatar }) => {
-    const currentUserId = useSelector(state => state.auth.user?.id);
-    const isOwn = message.sender.id === currentUserId;
+    const handleMenuClose = () => {
+        setAnchorEl(null);
+    };
+
+    const handleEditClick = () => {
+        handleMenuClose();
+        setEditDialogOpen(true);
+    };
+
+    const handleEditSubmit = () => {
+        onEdit(message.id, editedText);
+        setEditDialogOpen(false);
+    };
+
+    const handleDeleteClick = () => {
+        handleMenuClose();
+        onDelete(message.id);
+    };
 
     return (
-        <MessageContainer>
-            {showAvatar && !isOwn && (
-                <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{
-                        ml: 5,
-                        mb: 0.5,
-                        display: 'block'
-                    }}
-                >
-                    {message.sender.nickname || message.sender.username}
-                </Typography>
-            )}
-            <MessageWrapper isown={isOwn.toString()}>
-                {showAvatar ? (
+        <Box
+            sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: isOwnMessage ? 'flex-end' : 'flex-start',
+                mb: isLastInGroup ? 2 : 0.5
+            }}
+        >
+            <Box
+                sx={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    maxWidth: '70%'
+                }}
+            >
+                {!isOwnMessage && isLastInGroup && (
                     <UserAvatar
                         userId={message.sender.id}
                         username={message.sender.username}
                         size={32}
+                        sx={{ mr: 1, mt: 1 }}
                     />
-                ) : (
-                    <Box sx={{ width: 32, height: 32 }} /> // Placeholder для выравнивания
                 )}
-
-                <MessageBubble elevation={1} isown={isOwn.toString()}>
+                <Box
+                    sx={{
+                        backgroundColor: isOwnMessage ? 'primary.main' : 'background.paper',
+                        color: isOwnMessage ? 'primary.contrastText' : 'text.primary',
+                        borderRadius: 2,
+                        p: 1,
+                        boxShadow: 1
+                    }}
+                >
+                    {isLastInGroup && !isOwnMessage && (
+                        <Typography
+                            variant="subtitle2"
+                            color={isOwnMessage ? 'inherit' : 'primary'}
+                            sx={{ mb: 0.5 }}
+                        >
+                            {message.sender.nickname || message.sender.username}
+                        </Typography>
+                    )}
                     <Typography variant="body1">
                         {message.text}
                     </Typography>
-
-                    <Typography
-                        variant="caption"
-                        className="MuiTypography-timestamp"
+                    <Box
                         sx={{
-                            display: 'block',
-                            textAlign: 'right',
-                            mt: 0.5,
-                            fontSize: '0.75rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'flex-end',
+                            mt: 0.5
                         }}
                     >
-                        {formatMessageDate(message.timestamp)}
-                    </Typography>
-                </MessageBubble>
-            </MessageWrapper>
-        </MessageContainer>
+                        <Typography
+                            variant="caption"
+                            color={isOwnMessage ? 'inherit' : 'text.secondary'}
+                            sx={{ mr: 0.5 }}
+                        >
+                            {formatMessageDate(message.timestamp)}
+                        </Typography>
+                        {isOwnMessage && (
+                            message.read ? <DoneAllIcon fontSize="small" /> : <DoneIcon fontSize="small" />
+                        )}
+                    </Box>
+                </Box>
+                {isOwnMessage && (
+                    <IconButton size="small" onClick={handleMenuOpen}>
+                        <MoreVertIcon fontSize="small" />
+                    </IconButton>
+                )}
+            </Box>
+
+            <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+            >
+                <MenuItem onClick={handleEditClick}>Редактировать</MenuItem>
+                <MenuItem onClick={handleDeleteClick} sx={{ color: 'error.main' }}>
+                    Удалить
+                </MenuItem>
+            </Menu>
+
+            <Dialog
+                open={editDialogOpen}
+                onClose={() => setEditDialogOpen(false)}
+                fullWidth
+                maxWidth="sm"
+            >
+                <DialogTitle>Редактировать сообщение</DialogTitle>
+                <DialogContent>
+                    <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        value={editedText}
+                        onChange={(e) => setEditedText(e.target.value)}
+                        sx={{ mt: 1 }}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setEditDialogOpen(false)}>
+                        Отмена
+                    </Button>
+                    <Button
+                        onClick={handleEditSubmit}
+                        variant="contained"
+                        disabled={!editedText.trim() || editedText === message.text}
+                    >
+                        Сохранить
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </Box>
     );
 };
 

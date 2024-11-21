@@ -1,52 +1,99 @@
-// api/privateChat.api.js
+// api/groupChat.api.js
 import apiClient from './axios';
-import {store} from "../redux/store";
+import { webSocketService } from './websocket';
 
 export const groupChatApi = {
+    // REST API методы
     getGroupChats: () =>
         apiClient.get('/group-chat'),
+
+    getGroupChat: (chatId) =>
+        apiClient.get(`/group-chat/${chatId}`),
+
+    createGroupChat: (data) =>
+        apiClient.post('/group-chat/create', data),
+
+    getChatMembers: (chatId) =>
+        apiClient.get(`/group-chat/${chatId}/members`),
 
     getChatMessages: (chatId) =>
         apiClient.get(`/group-message/${chatId}`),
 
-    sendMessage: (chatId, message) =>
-        apiClient.post(`/group-message/${chatId}`, null, {
-            params: { message }
+    editDescription: (chatId, newDesc) =>
+        apiClient.patch(`/group-chat/${chatId}/edit-description`, null, {
+            params: { newDesc }
         }),
 
-    deleteMessage: (messageId) =>
-        apiClient.delete(`/group-message/${messageId}`),
-
-    editMessage: (messageId, editedMessage) =>
-        apiClient.patch(`/group-message/${messageId}`, null, {
-            params: { editedMessage }
+    editName: (chatId, newName) =>
+        apiClient.patch(`/group-chat/${chatId}/edit-name`, null, {
+            params: { newName }
         }),
 
-    sendFile: (chatId, file) => {
-        const formData = new FormData();
-        formData.append('file', file);
+    addUser: (chatId, userId) =>
+        apiClient.patch(`/group-chat/${chatId}/add-user`, null, {
+            params: { userId }
+        }),
 
-        return apiClient.post(`/group-file/${chatId}`, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            },
-            onUploadProgress: (progressEvent) => {
-                const percentCompleted = Math.round(
-                    (progressEvent.loaded * 100) / progressEvent.total
-                );
-                // Dispatch action to update progress
-                store.dispatch({
-                    type: 'chats/updateFileUploadProgress',
-                    payload: percentCompleted
-                });
-            }
+    deleteUser: (chatId, userId) =>
+        apiClient.patch(`/group-chat/${chatId}/delete-user`, null, {
+            params: { userId }
+        }),
+
+    changeRole: (chatId, memberId, role) =>
+        apiClient.patch(`/group-chat/${chatId}/change-role/${memberId}`, null, {
+            params: { role }
+        }),
+
+    leaveChat: (chatId) =>
+        apiClient.delete(`/group-chat/${chatId}/leave`),
+
+    // Методы для WebSocket
+    enterChat: async (chatId) => {
+        if (!webSocketService.isConnected()) {
+            throw new Error('WebSocket не подключен');
+        }
+        await webSocketService.send('/group.enter', { groupChatId: chatId });
+    },
+
+    sendMessage: async (chatId, message) => {
+        if (!webSocketService.isConnected()) {
+            throw new Error('WebSocket не подключен');
+        }
+        await webSocketService.send('/group.send', {
+            chatId,
+            message
         });
     },
 
-    searchMessages: (chatId, query) =>
-        apiClient.get(`/group-message/${chatId}/search`, {
-            params: { query }
-        }),
+    deleteMessage: async (messageId) => {
+        if (!webSocketService.isConnected()) {
+            throw new Error('WebSocket не подключен');
+        }
+        await webSocketService.send('/group.delete', {
+            messageId
+        });
+    },
+
+    editMessage: async (messageId, editedMessage) => {
+        if (!webSocketService.isConnected()) {
+            throw new Error('WebSocket не подключен');
+        }
+        await webSocketService.send('/group.edit', {
+            messageId,
+            editedMessage
+        });
+    },
+
+    // Методы для файлов
+    sendFile: (chatId, file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return apiClient.post(`/group-file/${chatId}`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+    },
 
     getFiles: (chatId) =>
         apiClient.get(`/group-file/${chatId}`),

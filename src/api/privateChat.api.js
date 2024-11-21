@@ -1,54 +1,71 @@
+// api/privateChat.api.js
 import apiClient from './axios';
-import {store} from "../redux/store";
+import { webSocketService } from './websocket';
 
 export const privateChatApi = {
+    // REST API методы
     getPrivateChats: () =>
         apiClient.get('/private-chat'),
 
-    getChatMessages: (chatId) =>
-        apiClient.get(`/private-message/${chatId}`),
+    getPrivateChat: (chatId) =>
+        apiClient.get(`/private-chat/${chatId}`),
+
+    createPrivateChat: (receiverId) =>
+        apiClient.post('/private-chat/create', { receiverId }),
 
     getChatMembers: (chatId) =>
         apiClient.get(`/private-chat/${chatId}/members`),
 
-    sendMessage: (chatId, message) =>
-        apiClient.post(`/private-message/${chatId}`, null, {
-            params: { message }
-        }),
+    getChatMessages: (chatId) =>
+        apiClient.get(`/private-message/${chatId}`),
 
-    deleteMessage: (messageId) =>
-        apiClient.delete(`/private-message/${messageId}`),
+    // Методы для WebSocket
+    enterChat: async (chatId) => {
+        if (!webSocketService.isConnected()) {
+            throw new Error('WebSocket не подключен');
+        }
+        await webSocketService.send('/private.enter', { privateChatId: chatId });
+    },
 
-    editMessage: (messageId, editedMessage) =>
-        apiClient.patch(`/private-message/${messageId}`, null, {
-            params: { editedMessage }
-        }),
-
-    sendFile: (chatId, file) => {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        return apiClient.post(`/private-file/${chatId}`, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            },
-            onUploadProgress: (progressEvent) => {
-                const percentCompleted = Math.round(
-                    (progressEvent.loaded * 100) / progressEvent.total
-                );
-                // Dispatch action to update progress
-                store.dispatch({
-                    type: 'chats/updateFileUploadProgress',
-                    payload: percentCompleted
-                });
-            }
+    sendMessage: async (chatId, message) => {
+        if (!webSocketService.isConnected()) {
+            throw new Error('WebSocket не подключен');
+        }
+        await webSocketService.send('/privateMessage.send', {
+            chatId,
+            message
         });
     },
 
-    searchMessages: (chatId, query) =>
-        apiClient.get(`/private-message/${chatId}/search`, {
-            params: { query }
-        }),
+    deleteMessage: async (messageId) => {
+        if (!webSocketService.isConnected()) {
+            throw new Error('WebSocket не подключен');
+        }
+        await webSocketService.send('/privateMessage.delete', {
+            messageId
+        });
+    },
+
+    editMessage: async (messageId, editedMessage) => {
+        if (!webSocketService.isConnected()) {
+            throw new Error('WebSocket не подключен');
+        }
+        await webSocketService.send('/privateMessage.edit', {
+            messageId,
+            editedMessage
+        });
+    },
+
+    // Методы для файлов
+    sendFile: (chatId, file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return apiClient.post(`/private-file/${chatId}`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+    },
 
     getFiles: (chatId) =>
         apiClient.get(`/private-file/${chatId}`),

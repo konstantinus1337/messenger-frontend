@@ -1,55 +1,56 @@
+// components/chats/ChatWindow/MessageList.js
 import React, { useEffect, useRef } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
 import {
     Box,
     CircularProgress,
     Typography
 } from '@mui/material';
 import MessageItem from './MessageItem';
-import { fetchChatMessages } from '../../../redux/slices/chatsSlice';
+import { groupMessages } from '../../../utils/messageUtils';
 
-const MessageList = () => {
-    const dispatch = useDispatch();
+const MessageList = ({ onEditMessage, onDeleteMessage }) => {
     const messagesEndRef = useRef(null);
-    const containerRef = useRef(null);
+    const messagesContainerRef = useRef(null);
     const { activeChat, loading } = useSelector(state => state.chats);
-    const messages = useSelector(state => state.chats.activeChat.messages);
+    const messages = useSelector(state =>
+        state.chats.activeChat.messages || []
+    );
 
-    useEffect(() => {
-        if (activeChat.id) {
-            dispatch(fetchChatMessages({
-                chatId: activeChat.id,
-                chatType: activeChat.type
-            }));
+    // Сохраняем позицию скролла перед обновлением
+    const preserveScroll = () => {
+        if (messagesContainerRef.current) {
+            const { scrollHeight, scrollTop, clientHeight } = messagesContainerRef.current;
+            // Проверяем, был ли скролл внизу (с небольшим порогом в 100px)
+            return scrollHeight - scrollTop - clientHeight < 100;
         }
-    }, [activeChat.id, activeChat.type, dispatch]);
+        return true;
+    };
 
-    const scrollToBottom = () => {
-        if (containerRef.current) {
-            containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    const scrollToBottom = (force = false) => {
+        if (force || preserveScroll()) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
     };
 
+    // Прокрутка при получении новых сообщений
     useEffect(() => {
         scrollToBottom();
-    }, [messages]);
+    }, [messages.length]);
 
-    // Сортируем сообщения от старых к новым
-    const sortedMessages = React.useMemo(() => {
-        return [...(messages || [])].sort((a, b) =>
-            new Date(a.timestamp) - new Date(b.timestamp)
-        );
-    }, [messages]);
+    // Прокрутка при первой загрузке чата
+    useEffect(() => {
+        scrollToBottom(true);
+    }, [activeChat.id]);
 
     if (loading.messages) {
         return (
             <Box
                 sx={{
                     display: 'flex',
-                    alignItems: 'center',
                     justifyContent: 'center',
-                    flexGrow: 1,
-                    minHeight: '200px'
+                    alignItems: 'center',
+                    flexGrow: 1
                 }}
             >
                 <CircularProgress />
@@ -57,76 +58,72 @@ const MessageList = () => {
         );
     }
 
-    if (!activeChat.id) {
+    if (!messages.length) {
         return (
             <Box
                 sx={{
                     display: 'flex',
-                    alignItems: 'center',
                     justifyContent: 'center',
+                    alignItems: 'center',
                     flexGrow: 1
                 }}
             >
                 <Typography color="text.secondary">
-                    Выберите чат для начала общения
+                    Нет сообщений
                 </Typography>
             </Box>
         );
     }
 
-    if (!sortedMessages || sortedMessages.length === 0) {
-        return (
-            <Box
-                sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexGrow: 1
-                }}
-            >
-                <Typography color="text.secondary">
-                    Нет сообщений. Начните общение прямо сейчас!
-                </Typography>
-            </Box>
-        );
-    }
+    // Сортируем сообщения по времени (старые вверху, новые внизу)
+    const sortedMessages = [...messages].sort(
+        (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+    );
+
+    // Группируем отсортированные сообщения
+    const messageGroups = groupMessages(sortedMessages);
 
     return (
         <Box
-            ref={containerRef}
+            ref={messagesContainerRef}
             sx={{
                 flexGrow: 1,
                 overflow: 'auto',
                 p: 2,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 1,
-                height: 'calc(100vh - 200px)', // Учитываем высоту header и input
                 '&::-webkit-scrollbar': {
                     width: '8px',
                 },
                 '&::-webkit-scrollbar-track': {
-                    backgroundColor: 'background.paper',
+                    backgroundColor: 'background.default',
                 },
                 '&::-webkit-scrollbar-thumb': {
                     backgroundColor: 'action.hover',
                     borderRadius: '4px',
-                },
+                    '&:hover': {
+                        backgroundColor: 'action.selected',
+                    }
+                }
             }}
         >
-            {sortedMessages.map((message, index) => (
-                <MessageItem
-                    key={message.id}
-                    message={message}
-                    showAvatar={
-                        index === 0 ||
-                        sortedMessages[index - 1].sender.id !== message.sender.id ||
-                        new Date(message.timestamp).getTime() -
-                        new Date(sortedMessages[index - 1].timestamp).getTime() > 300000 // 5 минут
-                    }
-                />
-            ))}
-            <div ref={messagesEndRef} />
+            {/* Контейнер для сообщений с отступом снизу для скролла */}
+            <Box sx={{ minHeight: 'min-content', pb: 2 }}>
+                {messageGroups.map((group, groupIndex) => (
+                    <Box key={groupIndex} sx={{ mb: 2 }}>
+                        {group.map((message, messageIndex) => (
+                            <MessageItem
+                                key={message.id}
+                                message={message}
+                                onEdit={onEditMessage}
+                                onDelete={onDeleteMessage}
+                                isLastInGroup={messageIndex === group.length - 1}
+                            />
+                        ))}
+                    </Box>
+                ))}
+                <div ref={messagesEndRef} />
+            </Box>
         </Box>
     );
 };
