@@ -1,20 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import {
     Container,
     Paper,
     Typography,
     Box,
     Snackbar,
-    IconButton
+    IconButton,
+    Divider,
+    Button,
+    Alert
 } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import { AvatarUpload } from '../../components/settings/AvatarUpload';
 import ProfileSettingsForm from '../../components/settings/ProfileSettingsForm';
+import DeleteAccountDialog from '../../components/settings/DeleteAccountDialog';
 import { useProfile } from '../../hooks/useProfile';
+import { logout } from '../../redux/slices/authSlice';
 
 const Settings = () => {
     const navigate = useNavigate();
+    const dispatch = useDispatch();
     const {
         userProfile,
         loading,
@@ -25,7 +32,8 @@ const Settings = () => {
         updatePassword,
         handleAvatarUpload,
         handleAvatarDelete,
-        handleClearUpdateSuccess
+        handleClearUpdateSuccess,
+        deleteUserProfile
     } = useProfile();
 
     const [snackbar, setSnackbar] = useState({
@@ -33,6 +41,27 @@ const Settings = () => {
         message: '',
         severity: 'success'
     });
+
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleDeleteAccount = async () => {
+        setIsDeleting(true);
+        try {
+            await deleteUserProfile();
+            dispatch(logout());
+            navigate('/');
+        } catch (error) {
+            setSnackbar({
+                open: true,
+                message: 'Ошибка при удалении аккаунта',
+                severity: 'error'
+            });
+        } finally {
+            setIsDeleting(false);
+            setDeleteDialogOpen(false);
+        }
+    };
 
     useEffect(() => {
         if (updateSuccess) {
@@ -44,57 +73,6 @@ const Settings = () => {
             handleClearUpdateSuccess();
         }
     }, [updateSuccess, handleClearUpdateSuccess]);
-
-    const handleProfileUpdate = async (profileData) => {
-        const success = await updateProfile(profileData);
-        if (success) {
-            setSnackbar({
-                open: true,
-                message: 'Профиль успешно обновлен',
-                severity: 'success'
-            });
-        } else {
-            setSnackbar({
-                open: true,
-                message: 'Ошибка при обновлении профиля',
-                severity: 'error'
-            });
-        }
-    };
-
-    const handlePasswordUpdate = async (passwordData) => {
-        const success = await updatePassword(passwordData);
-        if (success) {
-            setSnackbar({
-                open: true,
-                message: 'Пароль успешно изменен',
-                severity: 'success'
-            });
-        } else {
-            setSnackbar({
-                open: true,
-                message: 'Ошибка при изменении пароля',
-                severity: 'error'
-            });
-        }
-    };
-
-    const handleAvatarChange = async (file) => {
-        const success = await handleAvatarUpload(file);
-        if (success) {
-            setSnackbar({
-                open: true,
-                message: 'Аватар успешно обновлен',
-                severity: 'success'
-            });
-        } else {
-            setSnackbar({
-                open: true,
-                message: 'Ошибка при обновлении аватара',
-                severity: 'error'
-            });
-        }
-    };
 
     const handleCloseSnackbar = () => {
         setSnackbar(prev => ({
@@ -122,7 +100,7 @@ const Settings = () => {
                 <Box sx={{ maxWidth: 600, mx: 'auto' }}>
                     <AvatarUpload
                         avatarUrl={avatarUrl}
-                        onAvatarUpload={handleAvatarChange}
+                        onAvatarUpload={handleAvatarUpload}
                         onAvatarDelete={handleAvatarDelete}
                         loading={loading?.avatar || false}
                         error={error}
@@ -130,22 +108,52 @@ const Settings = () => {
 
                     <ProfileSettingsForm
                         userProfile={userProfile}
-                        onSubmitProfile={handleProfileUpdate}
-                        onSubmitPassword={handlePasswordUpdate}
+                        onSubmitProfile={updateProfile}
+                        onSubmitPassword={updatePassword}
                         loading={loading?.update || false}
                         error={error}
                         success={updateSuccess}
                     />
+
+                    <Divider sx={{ my: 4 }} />
+
+                    <Box>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            После удаления аккаунта все ваши данные будут безвозвратно удалены
+                        </Typography>
+                        <Button
+                            variant="contained"
+                            color="error"
+                            fullWidth
+                            onClick={() => setDeleteDialogOpen(true)}
+                            size="large"
+                        >
+                            Удалить аккаунт
+                        </Button>
+                    </Box>
                 </Box>
             </Paper>
+
+            <DeleteAccountDialog
+                open={deleteDialogOpen}
+                onClose={() => setDeleteDialogOpen(false)}
+                onConfirm={handleDeleteAccount}
+                isDeleting={isDeleting}
+            />
 
             <Snackbar
                 open={snackbar.open}
                 autoHideDuration={6000}
                 onClose={handleCloseSnackbar}
-                message={snackbar.message}
-                severity={snackbar.severity}
-            />
+            >
+                <Alert
+                    onClose={handleCloseSnackbar}
+                    severity={snackbar.severity}
+                    variant="filled"
+                >
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Container>
     );
 };

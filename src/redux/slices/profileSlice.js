@@ -63,6 +63,17 @@ export const fetchTopFriends = createAsyncThunk(
         return response.data.slice(0, 3);
     }
 );
+export const deleteProfile = createAsyncThunk(
+    'profile/deleteProfile',
+    async (_, { rejectWithValue }) => {
+        try {
+            await ProfileAPI.deleteUserProfile();
+            return true;
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to delete profile');
+        }
+    }
+);
 
 const profileSlice = createSlice({
     name: 'profile',
@@ -191,6 +202,18 @@ const profileSlice = createSlice({
                 state.loading.password = false;
                 state.error = action.error.message;
                 state.updateSuccess = false;
+            })
+            .addCase(deleteProfile.pending, (state) => {
+                state.loading.delete = true;
+                state.error = null;
+            })
+            .addCase(deleteProfile.fulfilled, (state) => {
+                state.loading.delete = false;
+                state.userProfile = null;
+            })
+            .addCase(deleteProfile.rejected, (state, action) => {
+                state.loading.delete = false;
+                state.error = action.payload;
             });
     }
 });

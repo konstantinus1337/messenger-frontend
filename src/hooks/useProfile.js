@@ -7,7 +7,7 @@ import {
     deleteAvatar,
     clearUpdateSuccess,
     clearError,
-    updateUserPassword
+    updateUserPassword, deleteProfile
 } from '../redux/slices/profileSlice';
 
 export const useProfile = () => {
@@ -68,6 +68,16 @@ export const useProfile = () => {
         dispatch(clearError());
     };
 
+    const deleteUserProfile = async () => {
+        try {
+            await dispatch(deleteProfile()).unwrap();
+            return true;
+        } catch (error) {
+            console.error('Failed to delete profile:', error);
+            throw error;
+        }
+    };
+
     return {
         userProfile,
         loading,
@@ -79,7 +89,8 @@ export const useProfile = () => {
         handleAvatarUpload,
         handleAvatarDelete,
         handleClearUpdateSuccess,
-        handleClearError
+        handleClearError,
+        deleteUserProfile
     };
 };
 
