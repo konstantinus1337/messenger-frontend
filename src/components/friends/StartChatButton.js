@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { IconButton, CircularProgress, Tooltip } from '@mui/material';
-// import { Chat as ChatIcon } from 'lucide-react';
-import ChatIcon from '@mui/icons-material/Chat'
+import { MessageCircle } from 'lucide-react';
+import { privateChatApi } from '../../api/privateChat.api';
 import { setActiveChat } from '../../redux/slices/chatsSlice';
 
 const StartChatButton = ({ friendId }) => {
@@ -16,25 +16,18 @@ const StartChatButton = ({ friendId }) => {
             setLoading(true);
 
             // Сначала пытаемся найти существующий чат
-            const response = await fetch(`/private-chat/find?receiverId=${friendId}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
-
             let chatData;
-
-            if (response.status === 404) {
-                // Если чат не найден, создаем новый
-                const createResponse = await fetch(`/private-chat/create?receiverId=${friendId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                });
-                chatData = await createResponse.json();
-            } else {
-                chatData = await response.json();
+            try {
+                const response = await privateChatApi.getPrivateChatBySenderAndReceiver(friendId);
+                chatData = response.data;
+            } catch (error) {
+                // Если чат не найден (404), создаем новый
+                if (error.response?.status === 404) {
+                    const createResponse = await privateChatApi.createPrivateChat(friendId);
+                    chatData = createResponse.data;
+                } else {
+                    throw error;
+                }
             }
 
             // Устанавливаем активный чат в Redux
@@ -48,6 +41,7 @@ const StartChatButton = ({ friendId }) => {
 
         } catch (error) {
             console.error('Error starting chat:', error);
+            // Здесь можно добавить обработку ошибок, например показ уведомления
         } finally {
             setLoading(false);
         }
@@ -55,18 +49,20 @@ const StartChatButton = ({ friendId }) => {
 
     return (
         <Tooltip title="Написать сообщение">
-            <IconButton
-                onClick={handleStartChat}
-                disabled={loading}
-                color="primary"
-                size="small"
-            >
-                {loading ? (
-                    <CircularProgress size={24} />
-                ) : (
-                    <ChatIcon size={24} />
-                )}
-            </IconButton>
+            <span>
+                <IconButton
+                    onClick={handleStartChat}
+                    disabled={loading}
+                    color="primary"
+                    size="small"
+                >
+                    {loading ? (
+                        <CircularProgress size={20} />
+                    ) : (
+                        <MessageCircle size={20} />
+                    )}
+                </IconButton>
+            </span>
         </Tooltip>
     );
 };

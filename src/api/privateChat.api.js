@@ -10,8 +10,15 @@ export const privateChatApi = {
     getPrivateChat: (chatId) =>
         apiClient.get(`/private-chat/${chatId}`),
 
+    getPrivateChatBySenderAndReceiver:(receiverId) =>
+        apiClient.get(`/private-chat/find/${receiverId}`),
+
     createPrivateChat: (receiverId) =>
-        apiClient.post('/private-chat/create', { receiverId }),
+        apiClient.post(`/private-chat/create/${receiverId}`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        }),
 
     getChatMembers: (chatId) =>
         apiClient.get(`/private-chat/${chatId}/members`),
