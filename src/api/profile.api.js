@@ -46,7 +46,7 @@ export const ProfileAPI = {
     // Получение аватара любого пользователя по ID
     getAnyUserAvatar: async (userId) => {
         try {
-            const response = await apiClient.get(`/user/${userId}/avatar`);
+            const response = await apiClient.get(`/user/avatar/${userId}`);
             return response.data;
         } catch (error) {
             console.error('Error fetching any user avatar:', error);
