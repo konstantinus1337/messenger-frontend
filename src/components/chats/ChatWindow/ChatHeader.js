@@ -1,4 +1,3 @@
-// ChatHeader.js
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -16,9 +15,11 @@ import {
 } from '@mui/icons-material';
 import { toggleRightPanel } from '../../../redux/slices/chatsSlice';
 import UserAvatar from '../../common/UserAvatar';
+import { getUserIdFromToken } from '../../../utils/jwtUtils';
 
 const ChatHeader = () => {
     const dispatch = useDispatch();
+    const currentUserId = getUserIdFromToken();
     const activeChat = useSelector(state => state.chats.activeChat);
     const chats = useSelector(state => state.chats.chats);
 
@@ -27,12 +28,12 @@ const ChatHeader = () => {
         return null;
     }
 
-    const chatInfo = activeChat.type === 'private'
+    const chat = activeChat.type === 'private'
         ? chats.private?.find(chat => chat.id === activeChat.id)
         : chats.group?.find(chat => chat.id === activeChat.id);
 
     // Если информация о чате еще не загрузилась
-    if (!chatInfo) {
+    if (!chat) {
         return (
             <AppBar position="static" color="transparent" elevation={1}>
                 <Toolbar>
@@ -44,32 +45,68 @@ const ChatHeader = () => {
         );
     }
 
+    const getChatInfo = () => {
+        if (chat.type === 'private') {
+            const sender = chat.participants?.sender;
+            const receiver = chat.participants?.receiver;
+            let otherUser;
+
+            if (Number(currentUserId) === Number(sender?.id)) {
+                otherUser = {
+                    id: receiver?.id,
+                    username: receiver?.username,
+                    nickname: receiver?.nickname
+                };
+            } else if (Number(currentUserId) === Number(receiver?.id)) {
+                otherUser = {
+                    id: sender?.id,
+                    username: sender?.username,
+                    nickname: sender?.nickname
+                };
+            }
+
+            return {
+                name: otherUser?.nickname || otherUser?.username || 'Неизвестный пользователь',
+                userId: otherUser?.id,
+                isGroup: false,
+                online: chat.online,
+                membersCount: null
+            };
+        }
+
+        return {
+            name: chat.name,
+            userId: null,
+            isGroup: true,
+            membersCount: chat.members?.length || 0
+        };
+    };
+
     const handleInfoClick = () => {
         dispatch(toggleRightPanel());
     };
+
+    const chatInfo = getChatInfo();
 
     return (
         <AppBar position="static" color="transparent" elevation={1}>
             <Toolbar>
                 <UserAvatar
-                    userId={chatInfo.type === 'private' ? chatInfo.participants?.receiver?.id : null}
-                    username={chatInfo.name || chatInfo.username}
+                    userId={chatInfo.userId}
+                    username={chatInfo.name}
                     size={40}
                     sx={{ mr: 2 }}
                 />
                 <Box sx={{ flexGrow: 1 }}>
                     <Typography variant="subtitle1">
-                        {chatInfo.name || chatInfo.username || 'Без названия'}
+                        {chatInfo.name}
                     </Typography>
-                    {activeChat.type === 'private' ? (
-                        <Typography variant="body2" color="text.secondary">
-                            {chatInfo.online ? 'В сети' : 'Не в сети'}
-                        </Typography>
-                    ) : (
-                        <Typography variant="body2" color="text.secondary">
-                            {chatInfo.members?.length || 0} участников
-                        </Typography>
-                    )}
+                    <Typography variant="body2" color="text.secondary">
+                        {chatInfo.isGroup
+                            ? `${chatInfo.membersCount} участников`
+                            : (chatInfo.online ? 'В сети' : 'Не в сети')
+                        }
+                    </Typography>
                 </Box>
                 <Tooltip title="Поиск по сообщениям">
                     <IconButton>
