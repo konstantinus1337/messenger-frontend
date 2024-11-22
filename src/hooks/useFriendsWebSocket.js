@@ -14,21 +14,25 @@ export const useFriendsWebSocket = () => {
     const token = localStorage.getItem('token');
 
     const handleFriendUpdate = useCallback((update) => {
-        switch (update.type) {
-            case 'STATUS_CHANGE':
-                dispatch(updateFriendStatus({
-                    userId: update.userId,
-                    status: update.status
-                }));
-                break;
-            case 'FRIEND_ADDED':
-                dispatch(addNewFriend(update.friend));
-                break;
-            case 'FRIEND_REMOVED':
-                dispatch(removeFriend(update.friendId));
-                break;
-            default:
-                console.warn('Неизвестный тип обновления:', update.type);
+        try {
+            switch (update.type) {
+                case 'STATUS_CHANGE':
+                    dispatch(updateFriendStatus({
+                        userId: update.userId,
+                        status: update.status
+                    }));
+                    break;
+                case 'FRIEND_REMOVED':
+                    dispatch(removeFriend(update.friendId));
+                    break;
+                case 'FRIEND_ADDED':
+                    dispatch(addNewFriend(update.friend));
+                    break;
+                default:
+                    console.warn('Неизвестный тип обновления:', update.type);
+            }
+        } catch (error) {
+            console.error('Error handling friend update:', error);
         }
     }, [dispatch]);
 
@@ -39,7 +43,6 @@ export const useFriendsWebSocket = () => {
 
         const setupConnection = async () => {
             try {
-                // Подписываемся на обновления друзей
                 await friendsApi.subscribeFriendUpdates((message) => {
                     if (isSubscribed) {
                         handleFriendUpdate(message);
@@ -54,7 +57,6 @@ export const useFriendsWebSocket = () => {
 
         setupConnection();
 
-        // Cleanup при размонтировании компонента
         return () => {
             isSubscribed = false;
             dispatch(clearFriendStatuses());

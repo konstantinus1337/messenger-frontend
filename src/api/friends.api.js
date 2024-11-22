@@ -40,7 +40,7 @@ export const friendsApi = {
             if (!webSocketService.isConnected()) {
                 await webSocketService.connect(localStorage.getItem('token'));
             }
-            await webSocketService.send('/friend.add', {
+            await webSocketService.send('/app/friend.add', {
                 friendId: friendId
             });
         } catch (error) {

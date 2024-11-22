@@ -68,12 +68,14 @@ const friendsSlice = createSlice({
 
         // Удаление друга (через WebSocket)
         removeFriend: (state, action) => {
-            const friendId = action.payload;
+            // Удаляем друга из списка
             state.friendsList = state.friendsList.filter(
-                friend => friend.id !== friendId
+                friend => friend.id !== action.payload
             );
-            // Удаляем информацию о статусе
-            delete state.onlineStatuses[friendId];
+            // Удаляем статус друга
+            if (state.onlineStatuses[action.payload]) {
+                delete state.onlineStatuses[action.payload];
+            }
         },
 
         // Обновление статуса друга

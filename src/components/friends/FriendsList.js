@@ -15,7 +15,7 @@ import {
 import { Delete as DeleteIcon } from '@mui/icons-material';
 import UserAvatar from '../common/UserAvatar';
 import StartChatButton from './StartChatButton';
-import { fetchFriends } from '../../redux/slices/friendsSlice';
+import { fetchFriends, removeFriend } from '../../redux/slices/friendsSlice'; // Добавлен импорт removeFriend
 import { useFriendsWebSocket } from '../../hooks/useFriendsWebSocket';
 import { friendsApi } from '../../api/friends.api';
 
@@ -60,9 +60,10 @@ const FriendsList = () => {
     const handleDeleteFriend = async (friendId) => {
         try {
             await friendsApi.deleteFriend(friendId);
+            // Локально обновляем состояние после успешного удаления
+            dispatch(removeFriend(friendId));
         } catch (error) {
             console.error('Error deleting friend:', error);
-            // Здесь можно добавить отображение ошибки пользователю
         }
     };
 
