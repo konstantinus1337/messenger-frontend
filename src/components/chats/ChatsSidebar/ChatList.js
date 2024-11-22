@@ -16,10 +16,22 @@ import { getUserIdFromToken } from '../../../utils/jwtUtils';
 const ChatList = () => {
     const dispatch = useDispatch();
     const currentUserId = getUserIdFromToken();
-    const { chats, filter, activeChat, unreadMessages } = useSelector(state => state.chats);
+    const {
+        chats,
+        filter,
+        activeChat,
+        unreadMessages,
+        chatSearch: { query, results }
+    } = useSelector(state => state.chats);
 
-    // Определяем filteredChats
+    // Определяем filteredChats с учетом поиска
     const filteredChats = React.useMemo(() => {
+        // Если есть поисковой запрос, используем результаты поиска
+        if (query.trim()) {
+            return results;
+        }
+
+        // Если поиска нет, используем стандартную фильтрацию
         let result = [];
         if (filter === 'all' || filter === 'private') {
             result = [...result, ...chats.private];
@@ -28,18 +40,17 @@ const ChatList = () => {
             result = [...result, ...chats.group];
         }
         return result.sort((a, b) => new Date(b.lastMessageDate) - new Date(a.lastMessageDate));
-    }, [chats, filter]);
+    }, [chats, filter, query, results]);
 
-    // Определяем функцию handleChatSelect
     const handleChatSelect = (chatId, chatType) => {
         dispatch(setActiveChat({ id: chatId, type: chatType }));
     };
 
     const getChatInfo = (chat) => {
-        if (chat.type === 'private') {
+        const chatType = chat.type || chat.searchType;
+        if (chatType === 'private') {
             let otherUser;
 
-            // Получаем данные из объекта participants
             const sender = chat.participants?.sender;
             const receiver = chat.participants?.receiver;
 
@@ -58,9 +69,7 @@ const ChatList = () => {
             }
 
             return {
-                // Если есть nickname - показываем его, если нет - показываем username
                 name: otherUser?.nickname || otherUser?.username || 'Неизвестный пользователь',
-                // Убираем secondaryName, так как он нам больше не нужен
                 secondaryName: null,
                 username: otherUser?.username,
                 userId: otherUser?.id,
@@ -83,9 +92,14 @@ const ChatList = () => {
         return (
             <Box sx={{ p: 2, textAlign: 'center' }}>
                 <Typography color="text.secondary">
-                    {filter === 'private' ? 'Нет личных чатов' :
-                        filter === 'group' ? 'Нет групповых чатов' :
-                            'Нет активных чатов'}
+                    {query.trim()
+                        ? 'Чаты не найдены'
+                        : filter === 'private'
+                            ? 'Нет личных чатов'
+                            : filter === 'group'
+                                ? 'Нет групповых чатов'
+                                : 'Нет активных чатов'
+                    }
                 </Typography>
             </Box>
         );
@@ -95,13 +109,14 @@ const ChatList = () => {
         <List>
             {filteredChats.map((chat) => {
                 const info = getChatInfo(chat);
-                const isActive = activeChat.id === chat.id && activeChat.type === chat.type;
+                const chatType = chat.type || chat.searchType;
+                const isActive = activeChat.id === chat.id && activeChat.type === chatType;
 
                 return (
                     <ListItemButton
-                        key={`${chat.type}-${chat.id}`}
+                        key={`${chatType}-${chat.id}`}
                         selected={isActive}
-                        onClick={() => handleChatSelect(chat.id, chat.type)}
+                        onClick={() => handleChatSelect(chat.id, chatType)}
                         sx={{
                             '&:hover': {
                                 backgroundColor: 'action.hover',
