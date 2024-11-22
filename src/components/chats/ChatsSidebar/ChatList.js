@@ -11,12 +11,14 @@ import {
 import { formatMessageDate } from '../../../utils/dateFormatter';
 import { setActiveChat } from '../../../redux/slices/chatsSlice';
 import UserAvatar from '../../common/UserAvatar';
+import { getUserIdFromToken } from '../../../utils/jwtUtils';
 
 const ChatList = () => {
     const dispatch = useDispatch();
-    const currentUser = useSelector(state => state.auth.user);
+    const currentUserId = getUserIdFromToken();
     const { chats, filter, activeChat, unreadMessages } = useSelector(state => state.chats);
 
+    // Определяем filteredChats
     const filteredChats = React.useMemo(() => {
         let result = [];
         if (filter === 'all' || filter === 'private') {
@@ -28,37 +30,40 @@ const ChatList = () => {
         return result.sort((a, b) => new Date(b.lastMessageDate) - new Date(a.lastMessageDate));
     }, [chats, filter]);
 
-    const getOtherParticipant = (chat) => {
-        if (!currentUser || !chat.participants) {
-            return null;
-        }
-
-        const { sender, receiver } = chat.participants;
-        return sender.id === currentUser.id ? receiver : sender;
+    // Определяем функцию handleChatSelect
+    const handleChatSelect = (chatId, chatType) => {
+        dispatch(setActiveChat({ id: chatId, type: chatType }));
     };
 
     const getChatInfo = (chat) => {
         if (chat.type === 'private') {
-            const otherUser = getOtherParticipant(chat);
+            let otherUser;
 
-            if (!otherUser) {
-                return {
-                    name: 'Неизвестный пользователь',
-                    displayName: 'Неизвестный пользователь',
-                    userId: null,
-                    online: false,
-                    isGroup: false
+            // Получаем данные из объекта participants
+            const sender = chat.participants?.sender;
+            const receiver = chat.participants?.receiver;
+
+            if (Number(currentUserId) === Number(sender?.id)) {
+                otherUser = {
+                    id: receiver?.id,
+                    username: receiver?.username,
+                    nickname: receiver?.nickname
+                };
+            } else if (Number(currentUserId) === Number(receiver?.id)) {
+                otherUser = {
+                    id: sender?.id,
+                    username: sender?.username,
+                    nickname: sender?.nickname
                 };
             }
 
-            const displayName = otherUser.nickname || otherUser.username;
-            const secondaryName = otherUser.nickname ? `@${otherUser.username}` : null;
-
             return {
-                name: displayName,
-                secondaryName,
-                username: otherUser.username,
-                userId: otherUser.id,
+                // Если есть nickname - показываем его, если нет - показываем username
+                name: otherUser?.nickname || otherUser?.username || 'Неизвестный пользователь',
+                // Убираем secondaryName, так как он нам больше не нужен
+                secondaryName: null,
+                username: otherUser?.username,
+                userId: otherUser?.id,
                 online: chat.online,
                 isGroup: false
             };
@@ -72,10 +77,6 @@ const ChatList = () => {
             membersCount: chat.members?.length || 0,
             isGroup: true
         };
-    };
-
-    const handleChatSelect = (chatId, chatType) => {
-        dispatch(setActiveChat({ id: chatId, type: chatType }));
     };
 
     if (!filteredChats.length) {
@@ -115,7 +116,7 @@ const ChatList = () => {
                         >
                             <UserAvatar
                                 userId={info.userId}
-                                username={info.name}
+                                username={info.username}
                                 size={40}
                             />
                         </Badge>
@@ -123,7 +124,7 @@ const ChatList = () => {
                             primary={
                                 <Typography
                                     variant="subtitle2"
-                                    component="div"
+                                    component="span"
                                     sx={{
                                         fontWeight: unreadMessages[chat.id] ? 600 : 400,
                                         color: 'text.primary'
@@ -133,10 +134,11 @@ const ChatList = () => {
                                 </Typography>
                             }
                             secondary={
-                                <Box>
+                                <Box component="span">
                                     {info.secondaryName && (
                                         <Typography
                                             variant="caption"
+                                            component="span"
                                             color="text.secondary"
                                             sx={{ display: 'block' }}
                                         >
@@ -146,6 +148,7 @@ const ChatList = () => {
                                     {chat.lastMessage && (
                                         <Typography
                                             variant="body2"
+                                            component="span"
                                             color="text.secondary"
                                             sx={{
                                                 overflow: 'hidden',
@@ -161,6 +164,7 @@ const ChatList = () => {
                                     )}
                                     <Typography
                                         variant="caption"
+                                        component="span"
                                         color="text.secondary"
                                         sx={{
                                             display: 'block',
