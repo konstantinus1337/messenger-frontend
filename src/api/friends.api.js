@@ -13,40 +13,48 @@ export const friendsApi = {
         return apiClient.get(`/friends/${userId}`);
     },
 
-    // Поиск пользователей (через UserProfileController)
+    // Поиск пользователей
     searchUsers: (query) =>
         apiClient.get(`/user/search`, {
             params: { query }
         }),
 
     // WebSocket методы
-    addFriend: async (friendId) => {
-        if (!webSocketService.isConnected()) {
-            throw new Error('WebSocket не подключен');
+    deleteFriend: async (friendId) => {
+        try {
+            if (!webSocketService.isConnected()) {
+                await webSocketService.connect(localStorage.getItem('token'));
+            }
+            // Убедимся, что friendId передается как число
+            await webSocketService.send('/app/friend.delete', {
+                friendId: parseInt(friendId, 10)
+            });
+        } catch (error) {
+            console.error('Failed to delete friend:', error);
+            throw error;
         }
-
-        await webSocketService.send('/friend.add', {
-            friendId: friendId
-        });
     },
 
-    deleteFriend: async (friendId) => {
-        if (!webSocketService.isConnected()) {
-            throw new Error('WebSocket не подключен');
+    addFriend: async (friendId) => {
+        try {
+            if (!webSocketService.isConnected()) {
+                await webSocketService.connect(localStorage.getItem('token'));
+            }
+            await webSocketService.send('/friend.add', {
+                friendId: friendId
+            });
+        } catch (error) {
+            console.error('Failed to add friend:', error);
+            throw error;
         }
-
-        await webSocketService.send('/friend.delete', {
-            friendId: friendId
-        });
     },
 
     // Подписка на обновления списка друзей
     subscribeFriendUpdates: async (callback) => {
-        if (!webSocketService.isConnected()) {
-            throw new Error('WebSocket не подключен');
-        }
-
         try {
+            if (!webSocketService.isConnected()) {
+                await webSocketService.connect(localStorage.getItem('token'));
+            }
             await webSocketService.subscribe('/topic/friends.updates', (message) => {
                 callback(message);
             });
@@ -56,26 +64,7 @@ export const friendsApi = {
         }
     },
 
-    // Отписка от обновлений
     unsubscribeFriendUpdates: () => {
         webSocketService.unsubscribe('/topic/friends.updates');
     },
-
-    // Настройка WebSocket соединения
-    setupWebSocket: async (token) => {
-        try {
-            await webSocketService.connect(token);
-        } catch (error) {
-            console.error('Ошибка при подключении WebSocket:', error);
-            throw error;
-        }
-    },
-
-    disconnectWebSocket: () => {
-        webSocketService.disconnect();
-    },
-
-    isWebSocketConnected: () => {
-        return webSocketService.isConnected();
-    }
 };

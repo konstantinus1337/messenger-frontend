@@ -12,36 +12,62 @@ import { groupMessages } from '../../../utils/messageUtils';
 const MessageList = ({ onEditMessage, onDeleteMessage }) => {
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
+    const lastMessageRef = useRef(null); // Добавляем ref для последнего сообщения
     const { activeChat, loading } = useSelector(state => state.chats);
     const messages = useSelector(state =>
         state.chats.activeChat.messages || []
     );
 
-    // Сохраняем позицию скролла перед обновлением
-    const preserveScroll = () => {
+    // Проверяем положение скролла
+    const isNearBottom = () => {
         if (messagesContainerRef.current) {
             const { scrollHeight, scrollTop, clientHeight } = messagesContainerRef.current;
-            // Проверяем, был ли скролл внизу (с небольшим порогом в 100px)
-            return scrollHeight - scrollTop - clientHeight < 100;
+            return scrollHeight - scrollTop - clientHeight < 150; // Увеличиваем порог до 150px
         }
         return true;
     };
 
     const scrollToBottom = (force = false) => {
-        if (force || preserveScroll()) {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (messagesEndRef.current && (force || isNearBottom())) {
+            try {
+                messagesEndRef.current.scrollIntoView({
+                    behavior: force ? 'auto' : 'smooth',
+                    block: 'end'
+                });
+            } catch (error) {
+                // Fallback для старых браузеров
+                messagesEndRef.current.scrollIntoView(false);
+            }
         }
     };
 
-    // Прокрутка при получении новых сообщений
+    // Отслеживаем изменения в сообщениях
     useEffect(() => {
-        scrollToBottom();
-    }, [messages.length]);
+        if (messages.length > 0) {
+            const lastMessage = messages[messages.length - 1];
 
-    // Прокрутка при первой загрузке чата
+            // Если это новое сообщение
+            if (lastMessage !== lastMessageRef.current) {
+                lastMessageRef.current = lastMessage;
+                scrollToBottom();
+            }
+        }
+    }, [messages]);
+
+    // Прокрутка при первой загрузке чата или смене чата
     useEffect(() => {
-        scrollToBottom(true);
+        if (activeChat.id) {
+            // Используем setTimeout для гарантии, что контент отрендерился
+            setTimeout(() => scrollToBottom(true), 100);
+        }
     }, [activeChat.id]);
+
+    // Добавляем слушатель изменения размера окна
+    useEffect(() => {
+        const handleResize = () => scrollToBottom(true);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     if (loading.messages) {
         return (
@@ -107,7 +133,6 @@ const MessageList = ({ onEditMessage, onDeleteMessage }) => {
                 }
             }}
         >
-            {/* Контейнер для сообщений с отступом снизу для скролла */}
             <Box sx={{ minHeight: 'min-content', pb: 2 }}>
                 {messageGroups.map((group, groupIndex) => (
                     <Box key={groupIndex} sx={{ mb: 2 }}>
@@ -122,7 +147,7 @@ const MessageList = ({ onEditMessage, onDeleteMessage }) => {
                         ))}
                     </Box>
                 ))}
-                <div ref={messagesEndRef} />
+                <div ref={messagesEndRef} style={{ float: 'left', clear: 'both' }} />
             </Box>
         </Box>
     );

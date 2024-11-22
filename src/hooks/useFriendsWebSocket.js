@@ -5,12 +5,12 @@ import {
     updateFriendStatus,
     removeFriend,
     addNewFriend,
-    clearFriendStatuses
+    clearFriendStatuses,
+    setWsConnected
 } from '../redux/slices/friendsSlice';
 
 export const useFriendsWebSocket = () => {
     const dispatch = useDispatch();
-    const { friendsList } = useSelector(state => state.friends);
     const token = localStorage.getItem('token');
 
     const handleFriendUpdate = useCallback((update) => {
@@ -35,33 +35,56 @@ export const useFriendsWebSocket = () => {
     useEffect(() => {
         if (!token) return;
 
+        let isSubscribed = true;
+
         const setupConnection = async () => {
             try {
-                // Устанавливаем WebSocket соединение
-                await friendsApi.setupWebSocket(token);
-
                 // Подписываемся на обновления друзей
-                await friendsApi.subscribeFriendUpdates(handleFriendUpdate);
-
+                await friendsApi.subscribeFriendUpdates((message) => {
+                    if (isSubscribed) {
+                        handleFriendUpdate(message);
+                    }
+                });
+                dispatch(setWsConnected(true));
             } catch (error) {
                 console.error('Ошибка при настройке WebSocket:', error);
+                dispatch(setWsConnected(false));
             }
         };
 
         setupConnection();
 
-        // Очистка при размонтировании
+        // Cleanup при размонтировании компонента
         return () => {
+            isSubscribed = false;
             dispatch(clearFriendStatuses());
+            dispatch(setWsConnected(false));
             friendsApi.unsubscribeFriendUpdates();
-            friendsApi.disconnectWebSocket();
         };
     }, [token, handleFriendUpdate, dispatch]);
 
+    // Функции для работы с друзьями через WebSocket
+    const addFriend = async (friendId) => {
+        try {
+            await friendsApi.addFriend(friendId);
+        } catch (error) {
+            console.error('Error adding friend:', error);
+            throw error;
+        }
+    };
+
+    const deleteFriend = async (friendId) => {
+        try {
+            await friendsApi.deleteFriend(friendId);
+        } catch (error) {
+            console.error('Error deleting friend:', error);
+            throw error;
+        }
+    };
+
     return {
-        isConnected: friendsApi.isWebSocketConnected(),
-        addFriend: friendsApi.addFriend,
-        deleteFriend: friendsApi.deleteFriend
+        addFriend,
+        deleteFriend
     };
 };
 

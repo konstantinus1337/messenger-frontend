@@ -1,4 +1,3 @@
-// FriendsList.js
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -18,10 +17,9 @@ import UserAvatar from '../common/UserAvatar';
 import StartChatButton from './StartChatButton';
 import { fetchFriends } from '../../redux/slices/friendsSlice';
 import { useFriendsWebSocket } from '../../hooks/useFriendsWebSocket';
-import UserSearch from "./UserSearch";
+import { friendsApi } from '../../api/friends.api';
 
-// Стилизованный компонент для индикатора онлайн статуса
-const OnlineBadge = styled(Badge)(({ theme }) => ({
+const StyledBadge = styled(Badge)(({ theme }) => ({
     '& .MuiBadge-badge': {
         backgroundColor: '#44b700',
         color: '#44b700',
@@ -54,7 +52,6 @@ const FriendsList = () => {
     const dispatch = useDispatch();
     const { friendsList } = useSelector(state => state.friends);
     const { onlineStatuses } = useSelector(state => state.friends);
-    const { isConnected, deleteFriend } = useFriendsWebSocket();
 
     useEffect(() => {
         dispatch(fetchFriends());
@@ -62,7 +59,7 @@ const FriendsList = () => {
 
     const handleDeleteFriend = async (friendId) => {
         try {
-            await deleteFriend(friendId);
+            await friendsApi.deleteFriend(friendId);
         } catch (error) {
             console.error('Error deleting friend:', error);
             // Здесь можно добавить отображение ошибки пользователю
@@ -85,7 +82,7 @@ const FriendsList = () => {
                 return (
                     <ListItem key={friend.id}>
                         <ListItemAvatar>
-                            <OnlineBadge
+                            <StyledBadge
                                 overlap="circular"
                                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                                 variant="dot"
@@ -96,7 +93,7 @@ const FriendsList = () => {
                                     username={friend.username}
                                     size={40}
                                 />
-                            </OnlineBadge>
+                            </StyledBadge>
                         </ListItemAvatar>
                         <ListItemText
                             primary={friend.nickname || friend.username}
@@ -115,7 +112,6 @@ const FriendsList = () => {
                                     onClick={() => handleDeleteFriend(friend.id)}
                                     color="error"
                                     size="small"
-                                    disabled={!isConnected}
                                 >
                                     <DeleteIcon />
                                 </IconButton>
@@ -127,4 +123,5 @@ const FriendsList = () => {
         </List>
     );
 };
+
 export default FriendsList;
