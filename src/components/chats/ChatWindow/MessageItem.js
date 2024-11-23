@@ -29,7 +29,9 @@ const MessageItem = ({
                          isLastInGroup
                      }) => {
     const currentUser = useSelector(state => state.auth.user);
+    const { results, currentIndex } = useSelector(state => state.chats.messageSearch);
     const isOwnMessage = message.sender.id === currentUser?.id;
+    const isHighlighted = results[currentIndex]?.id === message.id;
 
     const [anchorEl, setAnchorEl] = useState(null);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -60,11 +62,13 @@ const MessageItem = ({
 
     return (
         <Box
+            id={`message-${message.id}`}
             sx={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: isOwnMessage ? 'flex-end' : 'flex-start',
-                mb: isLastInGroup ? 2 : 0.5
+                mb: isLastInGroup ? 2 : 0.5,
+                scrollMarginTop: '100px'
             }}
         >
             <Box
@@ -84,11 +88,14 @@ const MessageItem = ({
                 )}
                 <Box
                     sx={{
-                        backgroundColor: isOwnMessage ? 'primary.main' : 'background.paper',
+                        backgroundColor: isHighlighted
+                            ? 'action.selected'
+                            : (isOwnMessage ? 'primary.main' : 'background.paper'),
                         color: isOwnMessage ? 'primary.contrastText' : 'text.primary',
                         borderRadius: 2,
                         p: 1,
-                        boxShadow: 1
+                        boxShadow: 1,
+                        transition: 'background-color 0.3s ease'
                     }}
                 >
                     {isLastInGroup && !isOwnMessage && (

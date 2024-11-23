@@ -1,4 +1,3 @@
-// components/chats/ChatWindow/MessageList.js
 import React, { useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import {
@@ -9,10 +8,10 @@ import {
 import MessageItem from './MessageItem';
 import { groupMessages } from '../../../utils/messageUtils';
 
-const MessageList = ({ onEditMessage, onDeleteMessage }) => {
+const MessageList = () => {
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
-    const lastMessageRef = useRef(null); // Добавляем ref для последнего сообщения
+    const lastMessageRef = useRef(null);
     const { activeChat, loading } = useSelector(state => state.chats);
     const messages = useSelector(state =>
         state.chats.activeChat.messages || []
@@ -140,8 +139,6 @@ const MessageList = ({ onEditMessage, onDeleteMessage }) => {
                             <MessageItem
                                 key={message.id}
                                 message={message}
-                                onEdit={onEditMessage}
-                                onDelete={onDeleteMessage}
                                 isLastInGroup={messageIndex === group.length - 1}
                             />
                         ))}

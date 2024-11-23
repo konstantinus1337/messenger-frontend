@@ -1,15 +1,13 @@
-// components/chats/ChatWindow/MessageSearch.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
     Box,
-    Paper,
     InputBase,
     IconButton,
     Typography,
     CircularProgress,
     Collapse,
-    Fade
+    Tooltip
 } from '@mui/material';
 import {
     Search as SearchIcon,
@@ -17,91 +15,145 @@ import {
     ArrowUpward as ArrowUpIcon,
     ArrowDownward as ArrowDownIcon
 } from '@mui/icons-material';
+import { debounce } from 'lodash';
 import {
     toggleMessageSearch,
-    setSearchQuery,
-    searchMessages,
-    navigateSearchResults
+    setMessageSearchQuery,
+    setMessageSearchResults,
+    navigateMessageSearchResults
 } from '../../../redux/slices/chatsSlice';
-import debounce from 'lodash/debounce';
 
 const MessageSearch = () => {
     const dispatch = useDispatch();
-    const { activeChat } = useSelector(state => state.chats);
-    const {
-        isOpen,
-        query,
-        results,
-        loading,
-        currentIndex
-    } = useSelector(state => state.chats.messageSearch);
+    const { activeChat, messageSearch } = useSelector(state => state.chats);
+    const { isOpen, results, loading, currentIndex } = messageSearch;
+    const [localQuery, setLocalQuery] = useState('');
 
-    // Debounced search function
+    const searchInMessages = useCallback((searchQuery) => {
+        if (!searchQuery.trim() || !activeChat.messages) {
+            dispatch(setMessageSearchResults([]));
+            return;
+        }
+
+        const normalizedQuery = searchQuery.toLowerCase();
+        const foundMessages = activeChat.messages.filter(message =>
+            message.text.toLowerCase().includes(normalizedQuery)
+        ).sort((a, b) => b.id - a.id); // Сортируем результаты по убыванию ID
+
+        if (foundMessages.length > 0) {
+            dispatch(setMessageSearchResults(foundMessages));
+            setTimeout(() => {
+                const firstMessage = document.getElementById(`message-${foundMessages[0].id}`);
+                if (firstMessage) {
+                    firstMessage.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+                    firstMessage.classList.add('highlighted'); // Добавляем класс для подсветки
+                }
+            }, 100);
+        } else {
+            dispatch(setMessageSearchResults([]));
+        }
+    }, [activeChat.messages, dispatch]);
+
     const debouncedSearch = useCallback(
-        debounce((searchQuery) => {
-            if (searchQuery.trim() && activeChat.id) {
-                dispatch(searchMessages({
-                    chatId: activeChat.id,
-                    chatType: activeChat.type,
-                    query: searchQuery
-                }));
-            }
-        }, 500),
-        [dispatch, activeChat]
+        debounce((value) => {
+            dispatch(setMessageSearchQuery(value));
+            searchInMessages(value);
+        }, 300),
+        [searchInMessages]
     );
 
     const handleSearchChange = (event) => {
-        const newQuery = event.target.value;
-        dispatch(setSearchQuery(newQuery));
-        debouncedSearch(newQuery);
+        const value = event.target.value;
+        setLocalQuery(value);
+        debouncedSearch(value);
     };
 
     const handleClose = () => {
         dispatch(toggleMessageSearch());
+        setLocalQuery('');
+        dispatch(setMessageSearchQuery(''));
+        dispatch(setMessageSearchResults([]));
     };
 
-    const handleNavigate = (direction) => {
-        dispatch(navigateSearchResults(direction));
+    const scrollToMessage = (messageId) => {
+        setTimeout(() => {
+            const messageElement = document.getElementById(`message-${messageId}`);
+            if (messageElement) {
+                messageElement.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+                messageElement.classList.add('highlighted'); // Добавляем класс для подсветки
+            }
+        }, 50);
+    };
 
-        // Прокрутка к выбранному сообщению
-        if (results[currentIndex]) {
-            const messageElement = document.getElementById(
-                `message-${results[currentIndex].id}`
-            );
-            messageElement?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center'
-            });
+    const handlePrevious = () => {
+        if (results.length > 0) {
+            let newIndex;
+            if (currentIndex >= results.length - 1) {
+                newIndex = 0; // Переход к первому элементу
+            } else {
+                newIndex = currentIndex + 1;
+            }
+            dispatch(navigateMessageSearchResults({ index: newIndex }));
         }
     };
 
-    // Очистка при размонтировании
-    useEffect(() => {
-        return () => {
-            dispatch(toggleMessageSearch());
-        };
-    }, [dispatch]);
+    const handleNext = () => {
 
-    if (!isOpen) return null;
+        if (results.length > 0) {
+            let newIndex;
+            if (currentIndex <= 0) {
+                newIndex = results.length - 1; // Переход к последнему элементу
+            } else {
+                newIndex = currentIndex - 1;
+            }
+            dispatch(navigateMessageSearchResults({ index: newIndex }));
+        }
+    };
+
+    const handleSearchClick = () => {
+        if (!isOpen) {
+            dispatch(toggleMessageSearch());
+        } else if (localQuery) {
+            searchInMessages(localQuery);
+        }
+    };
+
+    useEffect(() => {
+        if (results.length > 0 && currentIndex >= 0) {
+            scrollToMessage(results[currentIndex].id);
+        }
+    }, [currentIndex, results]);
+
+    if (!isOpen) {
+        return (
+            <Tooltip title="Поиск">
+                <IconButton onClick={handleSearchClick}>
+                    <SearchIcon />
+                </IconButton>
+            </Tooltip>
+        );
+    }
 
     return (
         <Collapse in={isOpen}>
-            <Paper
-                elevation={3}
+            <Box
                 sx={{
                     display: 'flex',
                     alignItems: 'center',
                     p: 1,
                     gap: 1,
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    zIndex: 1100,
-                    backgroundColor: 'background.paper'
+                    backgroundColor: 'background.paper',
+                    borderBottom: 1,
+                    borderColor: 'divider'
                 }}
             >
-                <IconButton size="small">
+                <IconButton size="small" onClick={handleSearchClick}>
                     <SearchIcon />
                 </IconButton>
 
@@ -109,8 +161,9 @@ const MessageSearch = () => {
                     autoFocus
                     fullWidth
                     placeholder="Поиск в чате..."
-                    value={query}
+                    value={localQuery}
                     onChange={handleSearchChange}
+                    sx={{ ml: 1 }}
                 />
 
                 {loading ? (
@@ -120,25 +173,43 @@ const MessageSearch = () => {
                         <Typography variant="body2" color="text.secondary">
                             {`${currentIndex + 1}/${results.length}`}
                         </Typography>
-                        <IconButton
-                            size="small"
-                            onClick={() => handleNavigate('prev')}
-                        >
-                            <ArrowUpIcon />
-                        </IconButton>
-                        <IconButton
-                            size="small"
-                            onClick={() => handleNavigate('next')}
-                        >
-                            <ArrowDownIcon />
-                        </IconButton>
+                        <Tooltip title="К предыдущему (вверх)">
+                            <IconButton
+                                size="small"
+                                onClick={handlePrevious}
+                                sx={{
+                                    '&:hover': {
+                                        backgroundColor: 'primary.main',
+                                        color: 'primary.contrastText'
+                                    }
+                                }}
+                            >
+                                <ArrowUpIcon />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title="К следующему (вниз)">
+                            <IconButton
+                                size="small"
+                                onClick={handleNext}
+                                sx={{
+                                    '&:hover': {
+                                        backgroundColor: 'primary.main',
+                                        color: 'primary.contrastText'
+                                    }
+                                }}
+                            >
+                                <ArrowDownIcon />
+                            </IconButton>
+                        </Tooltip>
                     </Box>
                 )}
 
-                <IconButton size="small" onClick={handleClose}>
-                    <CloseIcon />
-                </IconButton>
-            </Paper>
+                <Tooltip title="Закрыть поиск">
+                    <IconButton size="small" onClick={handleClose}>
+                        <CloseIcon />
+                    </IconButton>
+                </Tooltip>
+            </Box>
         </Collapse>
     );
 };

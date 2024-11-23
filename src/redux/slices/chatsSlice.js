@@ -278,22 +278,16 @@ const chatsSlice = createSlice({
         },
         setMessageSearchResults: (state, action) => {
             state.messageSearch.results = action.payload;
-            state.messageSearch.currentIndex = action.payload.length > 0 ? 0 : -1;
+            state.messageSearch.currentIndex = action.payload.length > 0 ? 0 : -1; // Автоматически устанавливаем индекс в 0
         },
-
         navigateMessageSearchResults: (state, action) => {
-            const direction = action.payload;
-            const { results, currentIndex } = state.messageSearch;
+            const { index } = action.payload;
+            const { results } = state.messageSearch;
 
             if (results.length === 0) return;
 
-            if (direction === 'next') {
-                state.messageSearch.currentIndex =
-                    currentIndex + 1 >= results.length ? 0 : currentIndex + 1;
-            } else {
-                state.messageSearch.currentIndex =
-                    currentIndex - 1 < 0 ? results.length - 1 : currentIndex - 1;
-            }
+            // Убеждаемся, что индекс находится в пределах допустимых значений
+            state.messageSearch.currentIndex = Math.max(0, Math.min(index, results.length - 1));
         },
 
         toggleRightPanel: (state) => {

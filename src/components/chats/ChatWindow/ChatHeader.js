@@ -10,12 +10,12 @@ import {
 } from '@mui/material';
 import {
     Info as InfoIcon,
-    Search as SearchIcon,
     MoreVert as MoreVertIcon
 } from '@mui/icons-material';
 import { toggleRightPanel } from '../../../redux/slices/chatsSlice';
 import UserAvatar from '../../common/UserAvatar';
 import { getUserIdFromToken } from '../../../utils/jwtUtils';
+import MessageSearch from './MessageSearch'; // Добавляем импорт
 
 const ChatHeader = () => {
     const dispatch = useDispatch();
@@ -108,11 +108,7 @@ const ChatHeader = () => {
                         }
                     </Typography>
                 </Box>
-                <Tooltip title="Поиск по сообщениям">
-                    <IconButton>
-                        <SearchIcon />
-                    </IconButton>
-                </Tooltip>
+                <MessageSearch /> {/* Добавляем компонент поиска */}
                 <Tooltip title="Информация">
                     <IconButton onClick={handleInfoClick}>
                         <InfoIcon />
