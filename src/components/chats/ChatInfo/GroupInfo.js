@@ -116,6 +116,10 @@ const GroupInfo = ({ group }) => {
             setError('У вас нет прав для управления участниками');
             return;
         }
+        if (currentUserRole === 'ADMIN' && member.role === 'CREATOR') {
+            setError('У вас нет прав для управления создателем группы');
+            return;
+        }
         setMemberMenuAnchor(event.currentTarget);
         setSelectedMember(member);
     };
@@ -154,6 +158,10 @@ const GroupInfo = ({ group }) => {
     const handleChangeRole = async (role) => {
         if (!isAdmin) {
             setError('У вас нет прав для изменения ролей');
+            return;
+        }
+        if (selectedMember.role === 'CREATOR') {
+            setError('Нельзя изменить роль создателя группы');
             return;
         }
         console.log('role', role);
