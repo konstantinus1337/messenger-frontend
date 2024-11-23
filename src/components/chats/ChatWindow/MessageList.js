@@ -1,3 +1,4 @@
+// components/chats/ChatWindow/MessageList.js
 import React, { useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import {
@@ -7,6 +8,7 @@ import {
 } from '@mui/material';
 import MessageItem from './MessageItem';
 import { groupMessages } from '../../../utils/messageUtils';
+import { getUserIdFromToken } from '../../../utils/jwtUtils';
 
 const MessageList = () => {
     const messagesEndRef = useRef(null);
@@ -16,6 +18,7 @@ const MessageList = () => {
     const messages = useSelector(state =>
         state.chats.activeChat.messages || []
     );
+    const currentUserId = getUserIdFromToken();
 
     // Проверяем положение скролла
     const isNearBottom = () => {
@@ -172,7 +175,8 @@ const MessageList = () => {
                             <MessageItem
                                 key={message.id}
                                 message={message}
-                                isLastInGroup={messageIndex === group.length - 1}
+                                isFirstInGroup={messageIndex === 0}
+                                isMine={message.sender.id === currentUserId}
                             />
                         ))}
                     </Box>
