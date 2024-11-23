@@ -32,7 +32,7 @@ import { friendsApi } from '../../../api/friends.api';
 import { groupChatApi } from '../../../api/groupChat.api';
 import { getUserIdFromToken } from '../../../utils/jwtUtils';
 
-const GroupInfo = ({ group }) => {
+const GroupInfo = ({ group, onGroupDeleted }) => {
     const dispatch = useDispatch();
     const [groupData, setGroupData] = useState(group);
     const [editMode, setEditMode] = useState(false);
@@ -50,6 +50,8 @@ const GroupInfo = ({ group }) => {
         Number(member.id) === Number(currentUserId)
     )?.role;
     const isAdmin = currentUserRole === 'ADMIN' || currentUserRole === 'CREATOR';
+    const isCreator = currentUserRole === 'CREATOR';
+
     useEffect(() => {
         setGroupData(group);
         setGroupName(group?.name || '');
@@ -221,6 +223,21 @@ const GroupInfo = ({ group }) => {
         setError(null);
     };
 
+    const handleDeleteGroup = async () => {
+        if (!isCreator) {
+            setError('У вас нет прав для удаления группы');
+            return;
+        }
+
+        try {
+            await groupChatApi.deleteGroupChat(groupData.id);
+            onGroupDeleted();
+        } catch (error) {
+            console.error('Error deleting group:', error);
+            setError('Не удалось удалить группу');
+        }
+    };
+
     // Фильтрация друзей, исключая тех, кто уже в группе
     const filteredFriends = friends.filter(friend =>
         !groupData.members.some(member => Number(member.id) === Number(friend.id))
@@ -302,6 +319,17 @@ const GroupInfo = ({ group }) => {
                             </Typography>
                         )}
                     </>
+                )}
+                {isCreator && (
+                    <Button
+                        variant="contained"
+                        color="error"
+                        startIcon={<DeleteIcon />}
+                        onClick={handleDeleteGroup}
+                        sx={{ mt: 2 }}
+                    >
+                        Удалить группу
+                    </Button>
                 )}
             </Box>
 

@@ -28,7 +28,12 @@ export const groupChatApi = {
         apiClient.patch(`/group-chat/${chatId}/edit-name`, null, {
             params: { newName }
         }),
-
+    deleteGroupChat: (chatId) =>
+        apiClient.delete(`/group-chat/${chatId}`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        }),
     addUser: (chatId, userId) =>
         apiClient.patch(`/group-chat/${chatId}/add-user`, null, {
             params: { userId }
