@@ -27,13 +27,24 @@ const Profile = () => {
     } = useSelector(state => state.profile);
 
     useEffect(() => {
-        dispatch(fetchUserProfile());
-        dispatch(fetchRecentChats());
-        dispatch(fetchTopFriends());
+        // Загружаем все данные при монтировании компонента
+        const loadProfileData = async () => {
+            try {
+                await Promise.all([
+                    dispatch(fetchUserProfile()),
+                    dispatch(fetchRecentChats()),
+                    dispatch(fetchTopFriends())
+                ]);
+            } catch (error) {
+                console.error('Failed to load profile data:', error);
+            }
+        };
+
+        loadProfileData();
     }, [dispatch]);
 
     return (
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Container maxWidth="lg" sx={{ py: 4 }}>
             <Grid container spacing={3}>
                 {/* Информация о профиле */}
                 <Grid item xs={12}>
