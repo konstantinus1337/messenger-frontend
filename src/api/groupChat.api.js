@@ -35,13 +35,19 @@ export const groupChatApi = {
         }),
 
     deleteUser: (chatId, userId) =>
-        apiClient.patch(`/group-chat/${chatId}/delete-user`, null, {
-            params: { userId }
+        apiClient.delete(`/group-chat/${chatId}/delete-user`, {
+            params: { userId },
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
         }),
 
     changeRole: (chatId, memberId, role) =>
         apiClient.patch(`/group-chat/${chatId}/change-role/${memberId}`, null, {
-            params: { role }
+            params: { role },
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
         }),
 
     leaveChat: (chatId) =>

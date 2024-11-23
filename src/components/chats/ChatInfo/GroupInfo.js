@@ -1,4 +1,3 @@
-// components/chats/ChatInfo/GroupInfo.js
 import React, { useState, useEffect } from 'react';
 import {
     Box,
@@ -17,7 +16,10 @@ import {
     Dialog,
     DialogTitle,
     DialogContent,
-    DialogActions
+    DialogActions,
+    CircularProgress,
+    Alert,
+    Snackbar
 } from '@mui/material';
 import {
     Edit as EditIcon,
@@ -26,31 +28,94 @@ import {
     MoreVert as MoreVertIcon
 } from '@mui/icons-material';
 import { useDispatch } from 'react-redux';
+import { friendsApi } from '../../../api/friends.api';
+import { groupChatApi } from '../../../api/groupChat.api';
+import { getUserIdFromToken } from '../../../utils/jwtUtils';
 
 const GroupInfo = ({ group }) => {
     const dispatch = useDispatch();
+    const [groupData, setGroupData] = useState(group);
     const [editMode, setEditMode] = useState(false);
     const [groupName, setGroupName] = useState(group?.name || '');
     const [groupDesc, setGroupDesc] = useState(group?.description || '');
     const [addMemberDialog, setAddMemberDialog] = useState(false);
     const [memberMenuAnchor, setMemberMenuAnchor] = useState(null);
     const [selectedMember, setSelectedMember] = useState(null);
+    const [friends, setFriends] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
+    const currentUserId = getUserIdFromToken();
+    const currentUserRole = groupData?.members?.find(member =>
+        Number(member.id) === Number(currentUserId)
+    )?.role;
+    const isAdmin = currentUserRole === 'ADMIN' || currentUserRole === 'CREATOR';
     useEffect(() => {
+        setGroupData(group);
         setGroupName(group?.name || '');
         setGroupDesc(group?.description || '');
     }, [group]);
 
-    const handleSaveChanges = () => {
-        // TODO: Реализовать сохранение изменений группы
-        setEditMode(false);
+    useEffect(() => {
+        const fetchFriends = async () => {
+            setLoading(true);
+            try {
+                const response = await friendsApi.getFriendList();
+                setFriends(response.data);
+            } catch (error) {
+                setError('Не удалось загрузить список друзей');
+                console.error('Error fetching friends:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (addMemberDialog) {
+            fetchFriends();
+        }
+    }, [addMemberDialog]);
+
+    const handleSaveChanges = async () => {
+        if (!isAdmin) {
+            setError('У вас нет прав для изменения информации о группе');
+            return;
+        }
+
+        try {
+            if (groupName !== groupData.name) {
+                await groupChatApi.editName(groupData.id, groupName);
+            }
+            if (groupDesc !== groupData.description) {
+                await groupChatApi.editDescription(groupData.id, groupDesc);
+            }
+
+            setGroupData(prev => ({
+                ...prev,
+                name: groupName,
+                description: groupDesc
+            }));
+
+            setEditMode(false);
+            setError(null);
+        } catch (error) {
+            setError('Не удалось обновить информацию о группе');
+            console.error('Error updating group:', error);
+        }
     };
 
     const handleAddMember = () => {
+        if (!isAdmin) {
+            setError('У вас нет прав для добавления участников');
+            return;
+        }
         setAddMemberDialog(true);
     };
 
     const handleMemberMenuOpen = (event, member) => {
+        if (!isAdmin) {
+            setError('У вас нет прав для управления участниками');
+            return;
+        }
         setMemberMenuAnchor(event.currentTarget);
         setSelectedMember(member);
     };
@@ -60,25 +125,119 @@ const GroupInfo = ({ group }) => {
         setSelectedMember(null);
     };
 
-    const handleRemoveMember = () => {
-        // TODO: Реализовать удаление участника
-        handleMemberMenuClose();
+    const handleRemoveMember = async () => {
+        if (!isAdmin) {
+            setError('У вас нет прав для удаления участников');
+            return;
+        }
+
+        try {
+            await groupChatApi.deleteUser(groupData.id, selectedMember.id);
+
+            setGroupData(prev => ({
+                ...prev,
+                members: prev.members.filter(member => member.id !== selectedMember.id)
+            }));
+
+            handleMemberMenuClose();
+            setError(null);
+        } catch (error) {
+            console.error('Error removing member:', error);
+            if (error.response?.status === 403) {
+                setError('У вас нет прав для удаления участников');
+            } else {
+                setError('Не удалось удалить участника');
+            }
+        }
     };
 
-    const handleChangeRole = (role) => {
-        // TODO: Реализовать изменение роли
-        handleMemberMenuClose();
+    const handleChangeRole = async (role) => {
+        if (!isAdmin) {
+            setError('У вас нет прав для изменения ролей');
+            return;
+        }
+        console.log('role', role);
+        try {
+            await groupChatApi.changeRole(groupData.id, selectedMember.id, role);
+
+            setGroupData(prev => ({
+                ...prev,
+                members: prev.members.map(member =>
+                    member.id === selectedMember.id
+                        ? { ...member, role }
+                        : member
+                )
+            }));
+
+            handleMemberMenuClose();
+            setError(null);
+        } catch (error) {
+            console.error('Error changing role:', error);
+            setError('Не удалось изменить роль участника');
+        }
     };
+
+    const handleAddFriendToGroup = async (friendId) => {
+        if (!isAdmin) {
+            setError('У вас нет прав для добавления участников');
+            return;
+        }
+
+        try {
+            await groupChatApi.addUser(groupData.id, friendId);
+
+            const addedFriend = friends.find(friend => friend.id === friendId);
+            const newMember = {
+                id: addedFriend.id,
+                username: addedFriend.username,
+                nickname: addedFriend.nickname,
+                avatar: addedFriend.avatar,
+                role: 'MEMBER'
+            };
+
+            setGroupData(prev => ({
+                ...prev,
+                members: [...prev.members, newMember]
+            }));
+
+            setAddMemberDialog(false);
+            setError(null);
+
+        } catch (error) {
+            console.error('Error adding friend to group:', error);
+            setError('Не удалось добавить участника в группу');
+        }
+    };
+
+    const handleCloseError = () => {
+        setError(null);
+    };
+
+    // Фильтрация друзей, исключая тех, кто уже в группе
+    const filteredFriends = friends.filter(friend =>
+        !groupData.members.some(member => Number(member.id) === Number(friend.id))
+    );
 
     return (
         <Box sx={{ p: 2 }}>
+            <Snackbar
+                open={!!error}
+                autoHideDuration={6000}
+                onClose={handleCloseError}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            >
+                <Alert onClose={handleCloseError} severity="error" sx={{ width: '100%' }}>
+                    {error}
+                </Alert>
+            </Snackbar>
+
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
                 <Avatar
-                    src={group?.avatar}
-                    alt={group?.name}
+                    src={groupData?.avatar}
+                    alt={groupData?.name}
                     sx={{ width: 100, height: 100, mb: 1 }}
                 >
-                    {group?.name[0].toUpperCase()}
+                    {groupData?.name[0].toUpperCase()}
                 </Avatar>
                 {editMode ? (
                     <Box sx={{ width: '100%', mb: 2 }}>
@@ -114,22 +273,24 @@ const GroupInfo = ({ group }) => {
                 ) : (
                     <>
                         <Typography variant="h6" sx={{ mb: 1 }}>
-                            {group?.name}
-                            <IconButton
-                                size="small"
-                                onClick={() => setEditMode(true)}
-                                sx={{ ml: 1 }}
-                            >
-                                <EditIcon fontSize="small" />
-                            </IconButton>
+                            {groupData?.name}
+                            {isAdmin && (
+                                <IconButton
+                                    size="small"
+                                    onClick={() => setEditMode(true)}
+                                    sx={{ ml: 1 }}
+                                >
+                                    <EditIcon fontSize="small" />
+                                </IconButton>
+                            )}
                         </Typography>
-                        {group?.description && (
+                        {groupData?.description && (
                             <Typography
                                 variant="body2"
                                 color="text.secondary"
                                 align="center"
                             >
-                                {group.description}
+                                {groupData.description}
                             </Typography>
                         )}
                     </>
@@ -137,19 +298,21 @@ const GroupInfo = ({ group }) => {
             </Box>
 
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                {`Участники (${group?.members?.length || 0})`}
-                <Button
-                    startIcon={<PersonAddIcon />}
-                    size="small"
-                    onClick={handleAddMember}
-                    sx={{ ml: 1 }}
-                >
-                    Добавить
-                </Button>
+                {`Участники (${groupData?.members?.length || 0})`}
+                {isAdmin && (
+                    <Button
+                        startIcon={<PersonAddIcon />}
+                        size="small"
+                        onClick={handleAddMember}
+                        sx={{ ml: 1 }}
+                    >
+                        Добавить
+                    </Button>
+                )}
             </Typography>
 
             <List>
-                {group?.members?.map((member) => (
+                {groupData?.members?.map((member) => (
                     <ListItem key={member.id}>
                         <ListItemAvatar>
                             <Avatar src={member.avatar}>
@@ -160,14 +323,16 @@ const GroupInfo = ({ group }) => {
                             primary={member.username}
                             secondary={member.role}
                         />
-                        <ListItemSecondaryAction>
-                            <IconButton
-                                edge="end"
-                                onClick={(e) => handleMemberMenuOpen(e, member)}
-                            >
-                                <MoreVertIcon />
-                            </IconButton>
-                        </ListItemSecondaryAction>
+                        {isAdmin && Number(member.id) !== Number(currentUserId) && (
+                            <ListItemSecondaryAction>
+                                <IconButton
+                                    edge="end"
+                                    onClick={(e) => handleMemberMenuOpen(e, member)}
+                                >
+                                    <MoreVertIcon />
+                                </IconButton>
+                            </ListItemSecondaryAction>
+                        )}
                     </ListItem>
                 ))}
             </List>
@@ -201,15 +366,54 @@ const GroupInfo = ({ group }) => {
             >
                 <DialogTitle>Добавить участника</DialogTitle>
                 <DialogContent>
-                    {/* TODO: Добавить поиск пользователей */}
+                    {loading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                            <CircularProgress />
+                        </Box>
+                    ) : filteredFriends.length > 0 ? (
+                        <List>
+                            {filteredFriends.map((friend) => (
+                                <ListItem
+                                    key={friend.id}
+                                    button
+                                >
+                                    <ListItemAvatar>
+                                        <Avatar src={friend.avatar}>
+                                            {friend.username[0].toUpperCase()}
+                                        </Avatar>
+                                    </ListItemAvatar>
+                                    <ListItemText
+                                        primary={friend.username}
+                                    />
+                                    <ListItemSecondaryAction>
+                                        <IconButton
+                                            edge="end"
+                                            onClick={() => handleAddFriendToGroup(friend.id)}
+                                        >
+                                            <PersonAddIcon />
+                                        </IconButton>
+                                    </ListItemSecondaryAction>
+                                </ListItem>
+                            ))}
+                        </List>
+                    ) : (
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ p: 2, textAlign: 'center' }}
+                        >
+                            Нет доступных друзей для добавления
+                        </Typography>
+                    )}
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setAddMemberDialog(false)}>
-                        Отмена
+                        Закрыть
                     </Button>
                 </DialogActions>
             </Dialog>
         </Box>
     );
 };
+
 export default GroupInfo;
