@@ -15,11 +15,13 @@ import {
 import {
     Email as EmailIcon,
     Phone as PhoneIcon,
-    Delete as DeleteIcon
+    Delete as DeleteIcon,
+    AccountCircle as AccountCircleIcon
 } from '@mui/icons-material';
 import { privateChatApi } from '../../../api/privateChat.api';
 import { ProfileAPI } from '../../../api/profile.api';
 import { getUserIdFromToken } from '../../../utils/jwtUtils';
+import { useNavigate } from 'react-router-dom';
 
 const UserInfo = ({ chatId }) => {
     const [user, setUser] = useState(null);
@@ -28,6 +30,7 @@ const UserInfo = ({ chatId }) => {
     const [error, setError] = useState(null);
 
     const currentUserId = getUserIdFromToken();
+    const navigate = useNavigate();
 
     useEffect(() => {
         const fetchChatInfo = async () => {
@@ -94,6 +97,12 @@ const UserInfo = ({ chatId }) => {
         }
     };
 
+    const handleGoToProfile = () => {
+        if (user?.id) {
+            navigate(`/user/${user.id}`);
+        }
+    };
+
     if (loading) {
         return (
             <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
@@ -153,6 +162,15 @@ const UserInfo = ({ chatId }) => {
             </List>
 
             <Box sx={{ mt: 2 }}>
+                <Button
+                    fullWidth
+                    color="primary"
+                    startIcon={<AccountCircleIcon />}
+                    onClick={handleGoToProfile}
+                >
+                    Перейти в профиль
+                </Button>
+                <Divider sx={{ my: 2 }} />
                 <Button
                     fullWidth
                     color="error"

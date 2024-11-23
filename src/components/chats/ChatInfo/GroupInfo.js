@@ -32,6 +32,7 @@ import { useDispatch } from 'react-redux';
 import { friendsApi } from '../../../api/friends.api';
 import { groupChatApi } from '../../../api/groupChat.api';
 import { getUserIdFromToken } from '../../../utils/jwtUtils';
+import { useNavigate } from 'react-router-dom';
 
 const GroupInfo = ({ group, onGroupDeleted }) => {
     const dispatch = useDispatch();
@@ -52,6 +53,8 @@ const GroupInfo = ({ group, onGroupDeleted }) => {
     )?.role;
     const isAdmin = currentUserRole === 'ADMIN' || currentUserRole === 'CREATOR';
     const isCreator = currentUserRole === 'CREATOR';
+
+    const navigate = useNavigate();
 
     useEffect(() => {
         setGroupData(group);
@@ -253,6 +256,10 @@ const GroupInfo = ({ group, onGroupDeleted }) => {
         }
     };
 
+    const handleMemberClick = (memberId) => {
+        navigate(`/user/${memberId}`);
+    };
+
     // Фильтрация друзей, исключая тех, кто уже в группе
     const filteredFriends = friends.filter(friend =>
         !groupData.members.some(member => Number(member.id) === Number(friend.id))
@@ -373,7 +380,12 @@ const GroupInfo = ({ group, onGroupDeleted }) => {
 
             <List>
                 {groupData?.members?.map((member) => (
-                    <ListItem key={member.id}>
+                    <ListItem
+                        key={member.id}
+                        button
+                        onClick={() => handleMemberClick(member.id)}
+                        sx={{ cursor: 'pointer' }}
+                    >
                         <ListItemAvatar>
                             <Avatar src={member.avatar}>
                                 {member.username[0].toUpperCase()}
@@ -436,6 +448,8 @@ const GroupInfo = ({ group, onGroupDeleted }) => {
                                 <ListItem
                                     key={friend.id}
                                     button
+                                    onClick={() => handleAddFriendToGroup(friend.id)}
+                                    sx={{ cursor: 'pointer' }}
                                 >
                                     <ListItemAvatar>
                                         <Avatar src={friend.avatar}>

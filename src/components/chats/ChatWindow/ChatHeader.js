@@ -6,7 +6,8 @@ import {
     Toolbar,
     Typography,
     IconButton,
-    Tooltip
+    Tooltip,
+    Link
 } from '@mui/material';
 import {
     Info as InfoIcon,
@@ -16,9 +17,11 @@ import { toggleRightPanel } from '../../../redux/slices/chatsSlice';
 import UserAvatar from '../../common/UserAvatar';
 import { getUserIdFromToken } from '../../../utils/jwtUtils';
 import MessageSearch from './MessageSearch'; // Добавляем импорт
+import { useNavigate } from 'react-router-dom';
 
 const ChatHeader = () => {
     const dispatch = useDispatch();
+    const navigate = useNavigate();
     const currentUserId = getUserIdFromToken();
     const activeChat = useSelector(state => state.chats.activeChat);
     const chats = useSelector(state => state.chats.chats);
@@ -88,6 +91,12 @@ const ChatHeader = () => {
 
     const chatInfo = getChatInfo();
 
+    const handleUserNameClick = () => {
+        if (chatInfo.userId) {
+            navigate(`/user/${chatInfo.userId}`);
+        }
+    };
+
     return (
         <AppBar position="static" color="transparent" elevation={1}>
             <Toolbar>
@@ -98,9 +107,21 @@ const ChatHeader = () => {
                     sx={{ mr: 2 }}
                 />
                 <Box sx={{ flexGrow: 1 }}>
-                    <Typography variant="subtitle1">
-                        {chatInfo.name}
-                    </Typography>
+                    {chatInfo.isGroup ? (
+                        <Typography variant="subtitle1">
+                            {chatInfo.name}
+                        </Typography>
+                    ) : (
+                        <Link
+                            component="button"
+                            variant="subtitle1"
+                            onClick={handleUserNameClick}
+                            underline="none"
+                            color="inherit"
+                        >
+                            {chatInfo.name}
+                        </Link>
+                    )}
                     <Typography variant="body2" color="text.secondary">
                         {chatInfo.isGroup
                             ? `${chatInfo.membersCount} участников`
