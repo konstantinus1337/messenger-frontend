@@ -1,5 +1,5 @@
 // pages/UserProfile/UserProfile.js
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Container,
@@ -19,10 +19,8 @@ import UserAvatar from '../../components/common/UserAvatar';
 import UserFriendsList from '../../components/userProfile/UserFriendsList';
 import { fetchUserProfile, fetchUserFriends } from '../../redux/slices/userProfileSlice';
 import { addNewFriend } from '../../redux/slices/friendsSlice';
-import { setActiveChat } from '../../redux/slices/chatsSlice';
 import { getUserIdFromToken } from '../../utils/jwtUtils';
 import { friendsApi } from '../../api/friends.api';
-import { privateChatApi } from '../../api/privateChat.api';
 
 const UserProfile = () => {
     const { userId } = useParams();
@@ -32,11 +30,10 @@ const UserProfile = () => {
     const { friendsList } = useSelector(state => state.friends);
     const { profile, friends, loading, error } = useSelector(state => state.userProfile);
 
-    const [isFriend, setIsFriend] = React.useState(false);
-    const [addingFriend, setAddingFriend] = React.useState(false);
-    const [startingChat, setStartingChat] = React.useState(false);
+    const [isFriend, setIsFriend] = useState(false);
+    const [addingFriend, setAddingFriend] = useState(false);
 
-    const handleAddFriend = async () => {
+    const handleAddFriend = useCallback(async () => {
         setAddingFriend(true);
         try {
             await friendsApi.addFriend(userId);
@@ -52,36 +49,7 @@ const UserProfile = () => {
         } finally {
             setAddingFriend(false);
         }
-    };
-
-    const handleStartChat = async () => {
-        setStartingChat(true);
-        try {
-            let chatData;
-            try {
-                const response = await privateChatApi.getPrivateChatBySenderAndReceiver(userId);
-                chatData = response.data;
-            } catch (error) {
-                if (error.response?.status === 404) {
-                    const createResponse = await privateChatApi.createPrivateChat(userId);
-                    chatData = createResponse.data;
-                } else {
-                    throw error;
-                }
-            }
-
-            dispatch(setActiveChat({
-                id: chatData.id,
-                type: 'private'
-            }));
-            navigate('/chats');
-        } catch (error) {
-            console.error('Error starting chat:', error);
-            dispatch(fetchUserProfile.rejected({ payload: 'Не удалось начать чат' }));
-        } finally {
-            setStartingChat(false);
-        }
-    };
+    }, [userId, profile, dispatch]);
 
     useEffect(() => {
         const loadUserData = async () => {
@@ -96,7 +64,9 @@ const UserProfile = () => {
                     dispatch(fetchUserFriends(userId))
                 ]);
 
-                setIsFriend(friendsList.some(friend => friend.id === parseInt(userId)));
+                // Проверяем, есть ли пользователь в списке друзей текущего пользователя
+                const isFriend = friendsList.some(friend => friend.id === parseInt(userId));
+                setIsFriend(isFriend);
             } catch (err) {
                 console.error('Error loading data:', err);
             }
@@ -180,7 +150,7 @@ const UserProfile = () => {
                                     </Typography>
                                 )}
                                 <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-                                    {!isFriend ? (
+                                    {!isFriend && (
                                         <Button
                                             variant="contained"
                                             startIcon={<PersonAdd />}
@@ -189,14 +159,15 @@ const UserProfile = () => {
                                         >
                                             {addingFriend ? 'Добавление...' : 'Добавить в друзья'}
                                         </Button>
-                                    ) : (
+                                    )}
+                                    {isFriend && (
                                         <Button
                                             variant="contained"
                                             startIcon={<Message />}
-                                            onClick={handleStartChat}
-                                            disabled={startingChat}
+                                            // onClick={handleStartChat}
+                                            // disabled={startingChat}
                                         >
-                                            {startingChat ? 'Открытие чата...' : 'Написать сообщение'}
+                                            Написать пользователю
                                         </Button>
                                     )}
                                 </Box>
@@ -205,7 +176,28 @@ const UserProfile = () => {
 
                         <Divider sx={{ my: 3 }} />
 
-                        <UserFriendsList friends={friends} />
+                        {loading.friends ? (
+                            <Box>
+                                <Typography variant="h6" gutterBottom>
+                                    Друзья
+                                </Typography>
+                                {[1, 2, 3].map((i) => (
+                                    <Box key={i} sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                        <Skeleton variant="circular" width={40} height={40} sx={{ mr: 2 }} />
+                                        <Box sx={{ width: '100%' }}>
+                                            <Skeleton variant="text" width="60%" />
+                                            <Skeleton variant="text" width="40%" />
+                                        </Box>
+                                    </Box>
+                                ))}
+                            </Box>
+                        ) : error.friends ? (
+                            <Alert severity="error" sx={{ mt: 2 }}>
+                                {error.friends}
+                            </Alert>
+                        ) : (
+                            <UserFriendsList friends={friends} />
+                        )}
                     </>
                 )}
             </Paper>

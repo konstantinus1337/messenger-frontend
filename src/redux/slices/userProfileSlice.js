@@ -17,17 +17,12 @@ export const fetchUserProfile = createAsyncThunk(
 );
 
 // Асинхронное действие для загрузки друзей пользователя
-// slices/userProfileSlice.js
 export const fetchUserFriends = createAsyncThunk(
     'userProfile/fetchUserFriends',
     async (userId, { rejectWithValue }) => {
         try {
             const response = await friendsApi.getUserFriends(userId);
-            console.log('fetchUserFriends response:', response); // Добавляем логирование
-
-            // Проверка на undefined и на то, что response.data является массивом
             if (!response || !response.data || !Array.isArray(response.data)) {
-                console.error('fetchUserFriends response or response.data is not valid:', response);
                 return [];
             }
 
@@ -42,7 +37,6 @@ export const fetchUserFriends = createAsyncThunk(
             }));
             return friends;
         } catch (error) {
-            console.error('Error fetching user friends:', error);
             return rejectWithValue(error.response?.data?.message || 'Failed to fetch user friends');
         }
     }

@@ -1,122 +1,109 @@
-// components/UserFriendsList.js
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
-    List,
-    ListItem,
-    ListItemAvatar,
-    ListItemText,
-    ListItemSecondaryAction,
-    IconButton,
-    Typography,
     Box,
-    Tooltip
+    Typography,
+    Skeleton, // Добавляем импорт Skeleton
+    Alert
 } from '@mui/material';
-import {
-    Person as PersonIcon
-} from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { StyledBadge } from '../common/StyledBadge';
 import UserAvatar from '../common/UserAvatar';
-
-const UserFriendsList = ({ friends }) => {
+const UserFriendsList = ({ friends, isLoading, error }) => {
     const navigate = useNavigate();
 
-    const handleViewProfile = (friendId) => {
-        navigate(`/user/${friendId}`);
-    };
-
-    console.log('UserFriendsList friends:', friends); // Добавляем логирование
-
-    if (!friends.length) {
+    if (isLoading) {
         return (
-            <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
-                У пользователя пока нет друзей
-            </Typography>
+            <Box>
+                <Typography variant="h6" gutterBottom>
+                    Друзья
+                </Typography>
+                {[1, 2, 3].map((i) => (
+                    <Box key={i} sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <Skeleton variant="circular" width={40} height={40} sx={{ mr: 2 }} />
+                        <Box sx={{ width: '100%' }}>
+                            <Skeleton variant="text" width="60%" />
+                            <Skeleton variant="text" width="40%" />
+                        </Box>
+                    </Box>
+                ))}
+            </Box>
         );
     }
 
-    // Сортировка списка друзей по имени
-    const sortedFriendsList = [...friends].sort((a, b) => {
-        const nameA = a.nickname || a.username;
-        const nameB = b.nickname || b.username;
-        return nameA.localeCompare(nameB);
-    });
+    if (error) {
+        return (
+            <Alert severity="error" sx={{ mt: 2 }}>
+                {error}
+            </Alert>
+        );
+    }
+
+    const hasFriends = Array.isArray(friends) && friends.length > 0;
+
+    if (!hasFriends) {
+        return (
+            <Box sx={{ py: 2 }}>
+                <Typography variant="h6" gutterBottom>
+                    Друзья
+                </Typography>
+                <Typography color="text.secondary">
+                    У пользователя пока нет друзей
+                </Typography>
+            </Box>
+        );
+    }
 
     return (
-        <List>
-            {sortedFriendsList.map((friend) => {
-                const isOnline = friend.status === 'ONLINE';
-
-                return (
-                    <ListItem
+        <Box>
+            <Typography variant="h6" gutterBottom>
+                Друзья ({friends.length})
+            </Typography>
+            <Box sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gap: 2
+            }}>
+                {friends.map((friend) => (
+                    <Box
                         key={friend.id}
-                        onClick={() => handleViewProfile(friend.id)}
                         sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            p: 1,
                             cursor: 'pointer',
+                            borderRadius: 1,
                             '&:hover': {
-                                backgroundColor: 'action.hover',
+                                bgcolor: 'action.hover',
                             },
-                            transition: 'background-color 0.2s'
                         }}
+                        onClick={() => navigate(`/user/${friend.id}`)}
                     >
-                        <ListItemAvatar>
-                            <StyledBadge
-                                overlap="circular"
-                                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                                variant="dot"
-                                invisible={!isOnline}
-                            >
-                                <UserAvatar
-                                    userId={friend.id}
-                                    username={friend.username}
-                                    size={40}
-                                />
-                            </StyledBadge>
-                        </ListItemAvatar>
-                        <ListItemText
-                            primary={friend.nickname || friend.username}
-                            secondary={
-                                <Box component="span">
-                                    {friend.nickname && (
-                                        <Typography
-                                            component="span"
-                                            variant="body2"
-                                            color="text.secondary"
-                                        >
-                                            @{friend.username}
-                                            {" • "}
-                                        </Typography>
-                                    )}
-                                    <Typography
-                                        component="span"
-                                        variant="body2"
-                                        color={isOnline ? "success.main" : "text.secondary"}
-                                    >
-                                        {isOnline ? 'В сети' : 'Не в сети'}
-                                    </Typography>
-                                </Box>
-                            }
-                        />
-                        <ListItemSecondaryAction>
-                            <Tooltip title="Просмотреть профиль">
-                                <IconButton
-                                    edge="end"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleViewProfile(friend.id);
-                                    }}
-                                    color="primary"
-                                    size="small"
-                                >
-                                    <PersonIcon />
-                                </IconButton>
-                            </Tooltip>
-                        </ListItemSecondaryAction>
-                    </ListItem>
-                );
-            })}
-        </List>
+                        <StyledBadge
+                            overlap="circular"
+                            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                            variant="dot"
+                            invisible={friend.status !== 'ONLINE'}
+                        >
+                            <UserAvatar
+                                userId={friend.id}
+                                username={friend.username}
+                                size={40}
+                            />
+                        </StyledBadge>
+                        <Box sx={{ ml: 2 }}>
+                            <Typography variant="subtitle2">
+                                {friend.nickname || friend.username}
+                            </Typography>
+                            {friend.nickname && (
+                                <Typography variant="body2" color="text.secondary">
+                                    @{friend.username}
+                                </Typography>
+                            )}
+                        </Box>
+                    </Box>
+                ))}
+            </Box>
+        </Box>
     );
 };
-
 export default UserFriendsList;
