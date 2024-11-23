@@ -25,7 +25,8 @@ import {
     Edit as EditIcon,
     Delete as DeleteIcon,
     PersonAdd as PersonAddIcon,
-    MoreVert as MoreVertIcon
+    MoreVert as MoreVertIcon,
+    ExitToApp as ExitToAppIcon
 } from '@mui/icons-material';
 import { useDispatch } from 'react-redux';
 import { friendsApi } from '../../../api/friends.api';
@@ -238,6 +239,20 @@ const GroupInfo = ({ group, onGroupDeleted }) => {
         }
     };
 
+    const handleLeaveChat = async () => {
+        try {
+            if (isCreator) {
+                await groupChatApi.deleteGroupChat(groupData.id);
+            } else {
+                await groupChatApi.leaveChat(groupData.id);
+            }
+            onGroupDeleted();
+        } catch (error) {
+            console.error('Error leaving group chat:', error);
+            setError('Не удалось выйти из группы');
+        }
+    };
+
     // Фильтрация друзей, исключая тех, кто уже в группе
     const filteredFriends = friends.filter(friend =>
         !groupData.members.some(member => Number(member.id) === Number(friend.id))
@@ -331,6 +346,15 @@ const GroupInfo = ({ group, onGroupDeleted }) => {
                         Удалить группу
                     </Button>
                 )}
+                <Button
+                    variant="outlined"
+                    color="error"
+                    startIcon={<ExitToAppIcon />}
+                    onClick={handleLeaveChat}
+                    sx={{ mt: 2 }}
+                >
+                    Выйти из чата
+                </Button>
             </Box>
 
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
