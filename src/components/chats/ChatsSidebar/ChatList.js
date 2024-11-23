@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
     List,
@@ -6,12 +6,19 @@ import {
     ListItemButton,
     Badge,
     Typography,
-    Box
+    Box,
+    Button,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField
 } from '@mui/material';
 import { formatMessageDate } from '../../../utils/dateFormatter';
-import { setActiveChat } from '../../../redux/slices/chatsSlice';
+import { setActiveChat, addGroupChat } from '../../../redux/slices/chatsSlice';
 import UserAvatar from '../../common/UserAvatar';
 import { getUserIdFromToken } from '../../../utils/jwtUtils';
+import { groupChatApi } from '../../../api/groupChat.api';
 
 const ChatList = () => {
     const dispatch = useDispatch();
@@ -23,6 +30,12 @@ const ChatList = () => {
         unreadMessages,
         chatSearch: { query, results }
     } = useSelector(state => state.chats);
+
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [openDialog, setOpenDialog] = useState(false);
+    const [groupName, setGroupName] = useState('');
+    const [groupDescription, setGroupDescription] = useState('');
 
     // Определяем filteredChats с учетом поиска
     const filteredChats = React.useMemo(() => {
@@ -88,115 +101,173 @@ const ChatList = () => {
         };
     };
 
-    if (!filteredChats.length) {
-        return (
-            <Box sx={{ p: 2, textAlign: 'center' }}>
-                <Typography color="text.secondary">
-                    {query.trim()
-                        ? 'Чаты не найдены'
-                        : filter === 'private'
-                            ? 'Нет личных чатов'
-                            : filter === 'group'
-                                ? 'Нет групповых чатов'
-                                : 'Нет активных чатов'
-                    }
-                </Typography>
-            </Box>
-        );
-    }
+    const handleCreateGroupChat = async () => {
+        setLoading(true);
+        setError(null);
+
+        try {
+            const newGroupChat = await groupChatApi.createGroupChat({
+                name: groupName,
+                description: groupDescription
+            });
+
+            // Добавляем новый групповой чат в список чатов
+            const newChat = {
+                id: newGroupChat.data.id,
+                type: 'group',
+                name: newGroupChat.data.name,
+                description: newGroupChat.data.description,
+                avatar: null,
+                lastMessage: null,
+                lastMessageDate: new Date().toISOString(),
+                members: []
+            };
+
+            dispatch(addGroupChat(newChat));
+            dispatch(setActiveChat({ id: newChat.id, type: newChat.type }));
+
+            // Закрываем диалог
+            setOpenDialog(false);
+            setGroupName('');
+            setGroupDescription('');
+        } catch (error) {
+            console.error('Error creating group chat:', error);
+            setError('Не удалось создать группу');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
-        <List>
-            {filteredChats.map((chat) => {
-                const info = getChatInfo(chat);
-                const chatType = chat.type || chat.searchType;
-                const isActive = activeChat.id === chat.id && activeChat.type === chatType;
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <List sx={{ flexGrow: 1, overflowY: 'auto' }}>
+                {filteredChats.map((chat) => {
+                    const info = getChatInfo(chat);
+                    const chatType = chat.type || chat.searchType;
+                    const isActive = activeChat.id === chat.id && activeChat.type === chatType;
 
-                return (
-                    <ListItemButton
-                        key={`${chatType}-${chat.id}`}
-                        selected={isActive}
-                        onClick={() => handleChatSelect(chat.id, chatType)}
-                        sx={{
-                            '&:hover': {
-                                backgroundColor: 'action.hover',
-                            },
-                            backgroundColor: isActive ? 'action.selected' : 'inherit'
-                        }}
-                    >
-                        <Badge
-                            badgeContent={unreadMessages[chat.id] || 0}
-                            color="primary"
-                            sx={{ mr: 2 }}
+                    return (
+                        <ListItemButton
+                            key={`${chatType}-${chat.id}`}
+                            selected={isActive}
+                            onClick={() => handleChatSelect(chat.id, chatType)}
+                            sx={{
+                                '&:hover': {
+                                    backgroundColor: 'action.hover',
+                                },
+                                backgroundColor: isActive ? 'action.selected' : 'inherit'
+                            }}
                         >
-                            <UserAvatar
-                                userId={info.userId}
-                                username={info.username}
-                                size={40}
-                            />
-                        </Badge>
-                        <ListItemText
-                            primary={
-                                <Typography
-                                    variant="subtitle2"
-                                    component="span"
-                                    sx={{
-                                        fontWeight: unreadMessages[chat.id] ? 600 : 400,
-                                        color: 'text.primary'
-                                    }}
-                                >
-                                    {info.name}
-                                </Typography>
-                            }
-                            secondary={
-                                <Box component="span">
-                                    {info.secondaryName && (
+                            <Badge
+                                badgeContent={unreadMessages[chat.id] || 0}
+                                color="primary"
+                                sx={{ mr: 2 }}
+                            >
+                                <UserAvatar
+                                    userId={info.userId}
+                                    username={info.username}
+                                    size={40}
+                                />
+                            </Badge>
+                            <ListItemText
+                                primary={
+                                    <Typography
+                                        variant="subtitle2"
+                                        component="span"
+                                        sx={{
+                                            fontWeight: unreadMessages[chat.id] ? 600 : 400,
+                                            color: 'text.primary'
+                                        }}
+                                    >
+                                        {info.name}
+                                    </Typography>
+                                }
+                                secondary={
+                                    <Box component="span">
+                                        {info.secondaryName && (
+                                            <Typography
+                                                variant="caption"
+                                                component="span"
+                                                color="text.secondary"
+                                                sx={{ display: 'block' }}
+                                            >
+                                                {info.secondaryName}
+                                            </Typography>
+                                        )}
+                                        {chat.lastMessage && (
+                                            <Typography
+                                                variant="body2"
+                                                component="span"
+                                                color="text.secondary"
+                                                sx={{
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                    maxWidth: '200px',
+                                                    display: 'inline-block',
+                                                    verticalAlign: 'bottom'
+                                                }}
+                                            >
+                                                {chat.lastMessage}
+                                            </Typography>
+                                        )}
                                         <Typography
                                             variant="caption"
                                             component="span"
                                             color="text.secondary"
-                                            sx={{ display: 'block' }}
-                                        >
-                                            {info.secondaryName}
-                                        </Typography>
-                                    )}
-                                    {chat.lastMessage && (
-                                        <Typography
-                                            variant="body2"
-                                            component="span"
-                                            color="text.secondary"
                                             sx={{
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap',
-                                                maxWidth: '200px',
-                                                display: 'inline-block',
-                                                verticalAlign: 'bottom'
+                                                display: 'block',
+                                                mt: 0.5
                                             }}
                                         >
-                                            {chat.lastMessage}
+                                            {info.isGroup ? `${info.membersCount} участников` :
+                                                (info.online ? 'В сети' : 'Не в сети')}
+                                            {chat.lastMessageDate && ` • ${formatMessageDate(chat.lastMessageDate)}`}
                                         </Typography>
-                                    )}
-                                    <Typography
-                                        variant="caption"
-                                        component="span"
-                                        color="text.secondary"
-                                        sx={{
-                                            display: 'block',
-                                            mt: 0.5
-                                        }}
-                                    >
-                                        {info.isGroup ? `${info.membersCount} участников` :
-                                            (info.online ? 'В сети' : 'Не в сети')}
-                                        {chat.lastMessageDate && ` • ${formatMessageDate(chat.lastMessageDate)}`}
-                                    </Typography>
-                                </Box>
-                            }
-                        />
-                    </ListItemButton>
-                );
-            })}
-        </List>
+                                    </Box>
+                                }
+                            />
+                        </ListItemButton>
+                    );
+                })}
+            </List>
+            <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
+                <Button
+                    variant="contained"
+                    onClick={() => setOpenDialog(true)}
+                    disabled={loading}
+                >
+                    Создать групповой чат
+                </Button>
+            </Box>
+
+            <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
+                <DialogTitle>Создать групповой чат</DialogTitle>
+                <DialogContent>
+                    <TextField
+                        autoFocus
+                        margin="dense"
+                        label="Название группы"
+                        fullWidth
+                        value={groupName}
+                        onChange={(e) => setGroupName(e.target.value)}
+                    />
+                    <TextField
+                        margin="dense"
+                        label="Описание группы"
+                        fullWidth
+                        multiline
+                        rows={4}
+                        value={groupDescription}
+                        onChange={(e) => setGroupDescription(e.target.value)}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDialog(false)}>Отмена</Button>
+                    <Button onClick={handleCreateGroupChat}>Создать</Button>
+                </DialogActions>
+            </Dialog>
+        </Box>
     );
 };
 

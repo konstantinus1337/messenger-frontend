@@ -313,6 +313,11 @@ const chatsSlice = createSlice({
             state.chatSearch.query = '';
             state.chatSearch.results = [];
             state.chatSearch.isSearching = false;
+        },
+
+        addGroupChat: (state, action) => {
+            const newGroupChat = action.payload;
+            state.chats.group.push(newGroupChat);
         }
     },
     extraReducers: (builder) => {
@@ -369,7 +374,8 @@ export const {
     setChatSearchQuery,
     setChatSearchResults,
     setChatSearching,
-    clearChatSearch
+    clearChatSearch,
+    addGroupChat
 } = chatsSlice.actions;
 
 export default chatsSlice.reducer;
