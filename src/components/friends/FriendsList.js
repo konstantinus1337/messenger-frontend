@@ -75,9 +75,16 @@ const FriendsList = () => {
         );
     }
 
+    // Сортировка списка друзей по имени
+    const sortedFriendsList = [...friendsList].sort((a, b) => {
+        const nameA = a.nickname || a.username;
+        const nameB = b.nickname || b.username;
+        return nameA.localeCompare(nameB);
+    });
+
     return (
         <List>
-            {friendsList.map((friend) => {
+            {sortedFriendsList.map((friend) => {
                 const isOnline = onlineStatuses[friend.id]?.status === 'ONLINE';
 
                 return (
