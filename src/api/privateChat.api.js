@@ -19,6 +19,8 @@ export const privateChatApi = {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         }),
+    deletePrivateChat: (privateChatId) =>
+        apiClient.delete(`/private-chat/${privateChatId}`),
 
     getChatMembers: (chatId) =>
         apiClient.get(`/private-chat/${chatId}/members`),

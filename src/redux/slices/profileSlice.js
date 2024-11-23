@@ -5,7 +5,7 @@ import { ProfileAPI } from '../../api/profile.api';
 export const fetchUserProfile = createAsyncThunk(
     'profile/fetchUserProfile',
     async () => {
-        const response = await ProfileAPI.getUserProfile();
+        const response = await ProfileAPI.getCurrentUserProfile();
         return response.data;
     }
 );

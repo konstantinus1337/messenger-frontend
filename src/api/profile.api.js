@@ -3,8 +3,11 @@ import apiClient from './axios';
 
 export const ProfileAPI = {
     // Получение профиля пользователя
-    getUserProfile: (userId) =>
+    getCurrentUserProfile: () =>
         apiClient.get(`/user/profile`),
+
+    getAnyUserProfile: (userId) =>
+        apiClient.get(`/user/${userId}`),
 
     // Обновление профиля
     updateProfile: (userData) =>
