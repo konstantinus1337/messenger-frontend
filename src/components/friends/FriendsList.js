@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import {
     List,
     ListItem,
@@ -9,46 +10,21 @@ import {
     IconButton,
     Typography,
     Stack,
-    Badge,
-    styled
+    Box,
+    Tooltip
 } from '@mui/material';
-import { Delete as DeleteIcon } from '@mui/icons-material';
+import {
+    Delete as DeleteIcon,
+    Person as PersonIcon
+} from '@mui/icons-material';
+import { StyledBadge } from '../common/StyledBadge';
 import UserAvatar from '../common/UserAvatar';
 import StartChatButton from './StartChatButton';
-import { fetchFriends, removeFriend } from '../../redux/slices/friendsSlice'; // Добавлен импорт removeFriend
-import { useFriendsWebSocket } from '../../hooks/useFriendsWebSocket';
+import { fetchFriends, removeFriend } from '../../redux/slices/friendsSlice';
 import { friendsApi } from '../../api/friends.api';
 
-const StyledBadge = styled(Badge)(({ theme }) => ({
-    '& .MuiBadge-badge': {
-        backgroundColor: '#44b700',
-        color: '#44b700',
-        boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
-        '&::after': {
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            borderRadius: '50%',
-            animation: 'ripple 1.2s infinite ease-in-out',
-            border: '1px solid currentColor',
-            content: '""',
-        },
-    },
-    '@keyframes ripple': {
-        '0%': {
-            transform: 'scale(.8)',
-            opacity: 1,
-        },
-        '100%': {
-            transform: 'scale(2.4)',
-            opacity: 0,
-        },
-    },
-}));
-
 const FriendsList = () => {
+    const navigate = useNavigate();
     const dispatch = useDispatch();
     const { friendsList } = useSelector(state => state.friends);
     const { onlineStatuses } = useSelector(state => state.friends);
@@ -57,14 +33,22 @@ const FriendsList = () => {
         dispatch(fetchFriends());
     }, [dispatch]);
 
-    const handleDeleteFriend = async (friendId) => {
+    const handleDeleteFriend = async (friendId, event) => {
+        event.stopPropagation(); // Предотвращаем всплытие события
         try {
             await friendsApi.deleteFriend(friendId);
-            // Локально обновляем состояние после успешного удаления
             dispatch(removeFriend(friendId));
         } catch (error) {
             console.error('Error deleting friend:', error);
         }
+    };
+
+    const handleStartChat = (event) => {
+        event.stopPropagation(); // Предотвращаем всплытие события
+    };
+
+    const handleViewProfile = (friendId) => {
+        navigate(`/user/${friendId}`);
     };
 
     if (!friendsList.length) {
@@ -88,7 +72,17 @@ const FriendsList = () => {
                 const isOnline = onlineStatuses[friend.id]?.status === 'ONLINE';
 
                 return (
-                    <ListItem key={friend.id}>
+                    <ListItem
+                        key={friend.id}
+                        onClick={() => handleViewProfile(friend.id)}
+                        sx={{
+                            cursor: 'pointer',
+                            '&:hover': {
+                                backgroundColor: 'action.hover',
+                            },
+                            transition: 'background-color 0.2s'
+                        }}
+                    >
                         <ListItemAvatar>
                             <StyledBadge
                                 overlap="circular"
@@ -106,23 +100,43 @@ const FriendsList = () => {
                         <ListItemText
                             primary={friend.nickname || friend.username}
                             secondary={
-                                <>
-                                    {friend.nickname && `@${friend.username} • `}
-                                    {isOnline ? 'В сети' : 'Не в сети'}
-                                </>
+                                <Box component="span">
+                                    {friend.nickname && (
+                                        <Typography
+                                            component="span"
+                                            variant="body2"
+                                            color="text.secondary"
+                                        >
+                                            @{friend.username}
+                                            {" • "}
+                                        </Typography>
+                                    )}
+                                    <Typography
+                                        component="span"
+                                        variant="body2"
+                                        color={isOnline ? "success.main" : "text.secondary"}
+                                    >
+                                        {isOnline ? 'В сети' : 'Не в сети'}
+                                    </Typography>
+                                </Box>
                             }
                         />
                         <ListItemSecondaryAction>
                             <Stack direction="row" spacing={1}>
-                                <StartChatButton friendId={friend.id} />
-                                <IconButton
-                                    edge="end"
-                                    onClick={() => handleDeleteFriend(friend.id)}
-                                    color="error"
-                                    size="small"
-                                >
-                                    <DeleteIcon />
-                                </IconButton>
+                                <StartChatButton
+                                    friendId={friend.id}
+                                    onClick={handleStartChat}
+                                />
+                                <Tooltip title="Удалить из друзей">
+                                    <IconButton
+                                        edge="end"
+                                        onClick={(e) => handleDeleteFriend(friend.id, e)}
+                                        color="error"
+                                        size="small"
+                                    >
+                                        <DeleteIcon />
+                                    </IconButton>
+                                </Tooltip>
                             </Stack>
                         </ListItemSecondaryAction>
                     </ListItem>

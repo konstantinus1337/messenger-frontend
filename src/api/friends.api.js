@@ -12,6 +12,16 @@ export const friendsApi = {
         }
         return apiClient.get(`/friends/${userId}`);
     },
+    getUserFriends: async (userId) => {
+        try {
+            const response = await apiClient.get(`/friends/${userId}`);
+            console.log('getUserFriends response:', response); // Добавляем логирование
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching user friends:', error);
+            throw error;
+        }
+    },
 
     // Поиск пользователей
     searchUsers: (query) =>

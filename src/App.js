@@ -14,6 +14,8 @@ import Friends from './pages/Friends/Friends';
 import Settings from './pages/Settings/Settings';
 import PrivateRoute from './components/common/PrivateRoute';
 import Chats from "./pages/Chats/Chats";
+import UserProfile from './pages/UserProfile/UserProfile';
+
 
 
 
@@ -87,7 +89,14 @@ function App() {
                     </PrivateRoute>
                   }
               />
-              <Route path="*" element={<Navigate to="/" />} />
+                    <Route
+                        path="/user/:userId"
+                        element={
+                            <PrivateRoute>
+                                <UserProfile />
+                            </PrivateRoute>
+                        }
+                    />
             </Routes>
           </BrowserRouter>
         </ThemeProvider>
