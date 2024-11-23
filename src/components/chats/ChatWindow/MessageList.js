@@ -68,6 +68,39 @@ const MessageList = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // Проверяем, загружены ли сообщения и прокручиваем вниз
+    useEffect(() => {
+        if (!loading.messages && messages.length > 0) {
+            scrollToBottom(true);
+        }
+    }, [loading.messages, messages]);
+
+    // Обработчик события прокрутки
+    const handleScroll = () => {
+        if (messagesContainerRef.current) {
+            const { scrollHeight, scrollTop, clientHeight } = messagesContainerRef.current;
+            if (scrollHeight - scrollTop === clientHeight) {
+                // Блокируем прокрутку, если достигли конца
+                messagesContainerRef.current.style.overflowY = 'hidden';
+            } else {
+                // Разблокируем прокрутку, если не достигли конца
+                messagesContainerRef.current.style.overflowY = 'auto';
+            }
+        }
+    };
+
+    // Добавляем слушатель события прокрутки
+    useEffect(() => {
+        if (messagesContainerRef.current) {
+            messagesContainerRef.current.addEventListener('scroll', handleScroll);
+        }
+        return () => {
+            if (messagesContainerRef.current) {
+                messagesContainerRef.current.removeEventListener('scroll', handleScroll);
+            }
+        };
+    }, []);
+
     if (loading.messages) {
         return (
             <Box
