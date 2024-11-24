@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import {
     TextField,
     List,
@@ -10,17 +11,24 @@ import {
     Button,
     Typography,
     CircularProgress,
-    Box
+    Box,
+    IconButton,
+    Tooltip
 } from '@mui/material';
-import { PersonAdd as PersonAddIcon, Search as SearchIcon } from '@mui/icons-material';
+import {
+    PersonAdd as PersonAddIcon,
+    Search as SearchIcon,
+    Person as PersonIcon
+} from '@mui/icons-material';
 import { debounce } from 'lodash';
 import UserAvatar from '../common/UserAvatar';
 import { friendsApi } from '../../api/friends.api';
 import { getUserIdFromToken } from '../../utils/jwtUtils';
-import { addNewFriend } from '../../redux/slices/friendsSlice'; // Добавляем импорт action
+import { addNewFriend } from '../../redux/slices/friendsSlice';
 
 const UserSearch = () => {
-    const dispatch = useDispatch(); // Добавляем dispatch
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -74,21 +82,23 @@ const UserSearch = () => {
         debouncedSearch(value);
     };
 
-    const handleAddFriend = async (user) => {
+    const handleAddFriend = async (user, event) => {
+        event.stopPropagation(); // Предотвращаем всплытие события к ListItem
         try {
             await friendsApi.addFriend(user.id);
-
-            // Моментально добавляем пользователя в список друзей через Redux
             dispatch(addNewFriend({
                 id: user.id,
                 username: user.username,
                 nickname: user.nickname
             }));
-
         } catch (error) {
             console.error('Error adding friend:', error);
             setError('Не удалось добавить пользователя в друзья');
         }
+    };
+
+    const handleUserClick = (userId) => {
+        navigate(`/user/${userId}`);
     };
 
     return (
@@ -131,8 +141,21 @@ const UserSearch = () => {
                             return null;
                         }
 
+                        const isUserFriend = isFriend(user.id);
+
                         return (
-                            <ListItem key={user.id}>
+                            <ListItem
+                                key={user.id}
+                                sx={{
+                                    cursor: 'pointer',
+                                    '&:hover': {
+                                        bgcolor: 'action.hover',
+                                    },
+                                    borderRadius: 1,
+                                    mb: 1
+                                }}
+                                onClick={() => handleUserClick(user.id)}
+                            >
                                 <ListItemAvatar>
                                     <UserAvatar
                                         userId={user.id}
@@ -145,19 +168,24 @@ const UserSearch = () => {
                                     secondary={user.nickname && `@${user.username}`}
                                 />
                                 <ListItemSecondaryAction>
-                                    {isFriend(user.id) ? (
-                                        <Typography
-                                            variant="body2"
-                                            color="text.secondary"
-                                            sx={{ fontStyle: 'italic' }}
-                                        >
-                                            Уже в друзьях
-                                        </Typography>
+                                    {isUserFriend ? (
+                                        <Tooltip title="Перейти в профиль">
+                                            <IconButton
+                                                edge="end"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleUserClick(user.id);
+                                                }}
+                                            >
+                                                <PersonIcon />
+                                            </IconButton>
+                                        </Tooltip>
                                     ) : (
                                         <Button
                                             variant="contained"
                                             startIcon={<PersonAddIcon />}
-                                            onClick={() => handleAddFriend(user)}
+                                            onClick={(e) => handleAddFriend(user, e)}
+                                            size="small"
                                         >
                                             Добавить
                                         </Button>
