@@ -28,12 +28,14 @@ export const groupChatApi = {
         apiClient.patch(`/group-chat/${chatId}/edit-name`, null, {
             params: { newName }
         }),
+
     deleteGroupChat: (chatId) =>
         apiClient.delete(`/group-chat/${chatId}`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         }),
+
     addUser: (chatId, userId) =>
         apiClient.patch(`/group-chat/${chatId}/add-user`, null, {
             params: { userId }
@@ -110,5 +112,27 @@ export const groupChatApi = {
         apiClient.get(`/group-file/${chatId}`),
 
     deleteFile: (fileId) =>
-        apiClient.delete(`/group-file/${fileId}`)
+        apiClient.delete(`/group-file/${fileId}`),
+
+    // Методы для аватара группового чата
+    getGroupChatAvatar: (chatId) =>
+        apiClient.get(`/group-chat/${chatId}/avatar`),
+
+    uploadGroupChatAvatar: (chatId, file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return apiClient.patch(`/group-chat/${chatId}/avatar`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+    },
+
+    deleteGroupChatAvatar: (chatId) =>
+        apiClient.delete(`/group-chat/${chatId}/avatar`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        })
 };
