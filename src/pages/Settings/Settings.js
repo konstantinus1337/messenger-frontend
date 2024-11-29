@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import {
@@ -16,7 +16,7 @@ import { ArrowBack } from '@mui/icons-material';
 import { AvatarUpload } from '../../components/settings/AvatarUpload';
 import ProfileSettingsForm from '../../components/settings/ProfileSettingsForm';
 import DeleteAccountDialog from '../../components/settings/DeleteAccountDialog';
-import { useProfile } from '../../hooks/useProfile';
+import useSettingsHook from '../../hooks/useSettings';
 import { logout } from '../../redux/slices/authSlice';
 
 const Settings = () => {
@@ -24,17 +24,17 @@ const Settings = () => {
     const dispatch = useDispatch();
     const {
         userProfile,
+        avatarUrl,
         loading,
         error,
-        avatarUrl,
         updateSuccess,
-        updateProfile,
-        updatePassword,
         handleAvatarUpload,
         handleAvatarDelete,
-        handleClearUpdateSuccess,
-        deleteUserProfile
-    } = useProfile();
+        handleUpdateProfile,
+        handleUpdatePassword,
+        handleDeleteAccount,
+        handleClearUpdateSuccess
+    } = useSettingsHook();
 
     const [snackbar, setSnackbar] = useState({
         open: false,
@@ -45,12 +45,20 @@ const Settings = () => {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const handleDeleteAccount = async () => {
+    const handleDeleteAccountConfirm = async () => {
         setIsDeleting(true);
         try {
-            await deleteUserProfile();
-            dispatch(logout());
-            navigate('/');
+            const success = await handleDeleteAccount();
+            if (success) {
+                dispatch(logout());
+                navigate('/');
+            } else {
+                setSnackbar({
+                    open: true,
+                    message: 'Ошибка при удалении аккаунта',
+                    severity: 'error'
+                });
+            }
         } catch (error) {
             setSnackbar({
                 open: true,
@@ -63,7 +71,7 @@ const Settings = () => {
         }
     };
 
-    useEffect(() => {
+    React.useEffect(() => {
         if (updateSuccess) {
             setSnackbar({
                 open: true,
@@ -102,16 +110,16 @@ const Settings = () => {
                         avatarUrl={avatarUrl}
                         onAvatarUpload={handleAvatarUpload}
                         onAvatarDelete={handleAvatarDelete}
-                        loading={loading?.avatar || false}
-                        error={error}
+                        loading={loading.avatar || false}
+                        error={error.avatar}
                     />
 
                     <ProfileSettingsForm
                         userProfile={userProfile}
-                        onSubmitProfile={updateProfile}
-                        onSubmitPassword={updatePassword}
-                        loading={loading?.update || false}
-                        error={error}
+                        onSubmitProfile={handleUpdateProfile}
+                        onSubmitPassword={handleUpdatePassword}
+                        loading={loading.update || false}
+                        error={error.update}
                         success={updateSuccess}
                     />
 
@@ -137,7 +145,7 @@ const Settings = () => {
             <DeleteAccountDialog
                 open={deleteDialogOpen}
                 onClose={() => setDeleteDialogOpen(false)}
-                onConfirm={handleDeleteAccount}
+                onConfirm={handleDeleteAccountConfirm}
                 isDeleting={isDeleting}
             />
 
