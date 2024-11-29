@@ -1,4 +1,3 @@
-// hooks/useChatWebSocket.js
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getUserIdFromToken } from '../utils/jwtUtils';  // Добавляем этот импорт
@@ -93,7 +92,9 @@ export const useChatWebSocket = () => {
                     await webSocketService.subscribe(
                         topicDestination,
                         (message) => {
-                            if (message.type === 'MESSAGE_EDITED') {
+                            if (message.type === 'MESSAGE_DELETED') {
+                                handleMessageDeleted(message);
+                            } else if (message.type === 'MESSAGE_EDITED') {
                                 handleMessageEdited(message);
                             } else {
                                 handleMessageReceived(message);

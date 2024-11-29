@@ -313,7 +313,6 @@ const chatsSlice = createSlice({
             state.chatSearch.results = [];
             state.chatSearch.isSearching = false;
         },
-
         addGroupChat: (state, action) => {
             const newGroupChat = action.payload;
             state.chats.group.push(newGroupChat);

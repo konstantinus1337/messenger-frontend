@@ -10,7 +10,7 @@ import MessageItem from './MessageItem';
 import { groupMessages, formatDateSeparator, shouldShowDateSeparator } from '../../../utils/messageUtils';
 import { getUserIdFromToken } from '../../../utils/jwtUtils';
 import { useChatWebSocket } from '../../../hooks/useChatWebSocket';
-import { messageEdited, messageReceived } from '../../../redux/slices/chatsSlice';
+import { messageEdited, messageDeleted, messageReceived } from '../../../redux/slices/chatsSlice'; // Импорт messageReceived
 import { webSocketService } from '../../../api/websocket'; // Импорт webSocketService
 
 const MessageList = () => {
@@ -97,6 +97,11 @@ const MessageList = () => {
         dispatch(messageEdited(data));
     }, [dispatch]);
 
+    const handleMessageDeleted = useCallback((data) => {
+        console.log('Message deleted:', data);
+        dispatch(messageDeleted(data));
+    }, [dispatch]);
+
     const handleMessageReceived = useCallback((data) => {
         console.log('Message received:', data);
         dispatch(messageReceived(data));
@@ -112,7 +117,9 @@ const MessageList = () => {
         const subscription = webSocketService.subscribe(
             topicDestination,
             (message) => {
-                if (message.type === 'MESSAGE_EDITED') {
+                if (message.type === 'MESSAGE_DELETED') {
+                    handleMessageDeleted(message);
+                } else if (message.type === 'MESSAGE_EDITED') {
                     handleMessageEdited(message);
                 } else {
                     handleMessageReceived(message);
@@ -123,7 +130,7 @@ const MessageList = () => {
         return () => {
             webSocketService.unsubscribeFromDestination(topicDestination);
         };
-    }, [wsConnected, activeChat.id, activeChat.type, handleMessageEdited, handleMessageReceived]);
+    }, [wsConnected, activeChat.id, activeChat.type, handleMessageEdited, handleMessageDeleted, handleMessageReceived]);
 
     const renderDateSeparator = (date) => (
         <Box
