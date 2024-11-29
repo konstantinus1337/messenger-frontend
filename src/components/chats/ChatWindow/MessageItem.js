@@ -1,4 +1,3 @@
-// components/chats/ChatWindow/MessageItem.js
 import React, { useState } from 'react';
 import {
     Box,
@@ -11,34 +10,30 @@ import {
     DialogContent,
     DialogActions,
     Button,
-    TextField
+    TextField,
 } from '@mui/material';
 import {
     MoreVert as MoreVertIcon,
     Done as DoneIcon,
     DoneAll as DoneAllIcon
 } from '@mui/icons-material';
-import { useSelector } from 'react-redux';
+import { useChatWebSocket } from '../../../hooks/useChatWebSocket';
 import { formatMessageDate } from '../../../utils/dateFormatter';
-import UserAvatar from '../../common/UserAvatar';
-import { getUserIdFromToken } from '../../../utils/jwtUtils';
 
 const MessageItem = ({
                          message,
-                         onEdit,
-                         onDelete,
                          isFirstInGroup,
-                         isMine
+                         isMine,
+                         chatType
                      }) => {
-    const currentUserId = getUserIdFromToken();
-    const { results, currentIndex } = useSelector(state => state.chats.messageSearch);
-    const isHighlighted = results[currentIndex]?.id === message.id;
-
     const [anchorEl, setAnchorEl] = useState(null);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [editedText, setEditedText] = useState(message.text);
+    const { sendMessage } = useChatWebSocket();
+    const { editMessage, deleteMessage } = useChatWebSocket();
 
     const handleMenuOpen = (event) => {
+        event.stopPropagation();
         setAnchorEl(event.currentTarget);
     };
 
@@ -49,27 +44,40 @@ const MessageItem = ({
     const handleEditClick = () => {
         handleMenuClose();
         setEditDialogOpen(true);
+        setEditedText(message.text);
     };
 
-    const handleEditSubmit = () => {
-        onEdit(message.id, editedText);
-        setEditDialogOpen(false);
+    const handleEditSubmit = async () => {
+        if (editedText.trim() === message.text) {
+            setEditDialogOpen(false);
+            return;
+        }
+
+        try {
+            await editMessage(message.chatId, message.id, editedText.trim());
+            setEditDialogOpen(false);
+        } catch (error) {
+            console.error('Error editing message:', error);
+        }
     };
 
-    const handleDeleteClick = () => {
-        handleMenuClose();
-        onDelete(message.id);
+    const handleDeleteClick = async () => {
+        try {
+            await deleteMessage(message.chatId, message.id);
+            handleMenuClose();
+        } catch (error) {
+            console.error('Error deleting message:', error);
+        }
     };
+
 
     return (
         <Box
-            id={`message-${message.id}`}
             sx={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: isMine ? 'flex-end' : 'flex-start',
-                mb: isFirstInGroup ? 2 : 0.5,
-                scrollMarginTop: '100px'
+                mb: isFirstInGroup ? 2 : 0.5
             }}
         >
             <Box
@@ -80,27 +88,15 @@ const MessageItem = ({
                     flexDirection: isMine ? 'row-reverse' : 'row'
                 }}
             >
-                {/* Удаляем аватарку собеседника */}
-                {/* {!isMine && isFirstInGroup && (
-                    <UserAvatar
-                        userId={message.sender.id}
-                        username={message.sender.username}
-                        size={32}
-                        sx={{ mr: 1, mt: 1 }}
-                    />
-                )} */}
                 <Box
                     sx={{
-                        backgroundColor: isHighlighted
-                            ? 'action.selected'
-                            : (isMine ? 'primary.main' : 'background.paper'),
+                        backgroundColor: isMine ? 'primary.main' : 'background.paper',
                         color: isMine ? 'primary.contrastText' : 'text.primary',
                         borderRadius: 2,
                         p: 1,
                         boxShadow: 1,
-                        transition: 'background-color 0.3s ease',
-                        ml: isMine ? 0 : isFirstInGroup ? '40px' : 0, // Уменьшаем отступ для выравнивания
-                        mr: isMine ? '40px' : 0 // Уменьшаем отступ для выравнивания
+                        ml: isMine ? 0 : '40px',
+                        mr: isMine ? '40px' : 0
                     }}
                 >
                     {isFirstInGroup && !isMine && (
@@ -114,12 +110,21 @@ const MessageItem = ({
                     )}
                     <Typography variant="body1">
                         {message.text}
+                        {message.edited && (
+                            <Typography
+                                component="span"
+                                variant="caption"
+                                sx={{ ml: 1, opacity: 0.7 }}
+                            >
+                                (изменено)
+                            </Typography>
+                        )}
                     </Typography>
                     <Box
                         sx={{
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'space-between',
+                            justifyContent: 'flex-end',
                             mt: 0.5
                         }}
                     >
@@ -131,12 +136,12 @@ const MessageItem = ({
                             {formatMessageDate(message.timestamp)}
                         </Typography>
                         {isMine && (
-                            message.read ? <DoneAllIcon fontSize="small" /> : <DoneIcon fontSize="small" />
-                        )}
-                        {isMine && (
-                            <IconButton size="small" onClick={handleMenuOpen} sx={{ ml: 0.5 }}>
-                                <MoreVertIcon fontSize="small" />
-                            </IconButton>
+                            <>
+                                {message.read ? <DoneAllIcon fontSize="small" /> : <DoneIcon fontSize="small" />}
+                                <IconButton size="small" onClick={handleMenuOpen} sx={{ ml: 0.5 }}>
+                                    <MoreVertIcon fontSize="small" />
+                                </IconButton>
+                            </>
                         )}
                     </Box>
                 </Box>

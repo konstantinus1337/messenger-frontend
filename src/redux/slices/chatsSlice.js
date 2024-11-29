@@ -220,24 +220,23 @@ const chatsSlice = createSlice({
         },
 
         messageEdited: (state, action) => {
-            const { messageId, chatId, text } = action.payload;
+            const { messageId, chatId, newMessage, status } = action.payload;
 
-            // Update message in active chat
+            // Обновляем сообщение в активном чате
             if (state.activeChat.id === chatId) {
                 const message = state.activeChat.messages.find(m => m.id === messageId);
                 if (message) {
-                    message.text = text;
-                    message.edited = true;
+                    message.text = newMessage;
+                    message.edited = status === 'EDITED';
                 }
             }
 
-            // Update last message in chat list if needed
+            // Обновляем последнее сообщение в списке чатов если нужно
             const chatType = state.activeChat.type;
-            if (chatType) {
-                const chat = state.chats[chatType].find(c => c.id === chatId);
-                if (chat && chat.lastMessage?.id === messageId) {
-                    chat.lastMessage = text;
-                }
+            const chatList = state.chats[chatType];
+            const chat = chatList?.find(c => c.id === chatId);
+            if (chat && chat.lastMessage?.id === messageId) {
+                chat.lastMessage = newMessage;
             }
         },
 

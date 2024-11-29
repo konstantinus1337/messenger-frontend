@@ -20,7 +20,8 @@ export const useChatWebSocket = () => {
     const typingTimeoutRef = useRef({});
 
     const handleMessageReceived = useCallback((message) => {
-        console.log('Received message:', message);const formattedMessage = {
+        console.log('Received message:', message);
+        const formattedMessage = {
             id: message.id,
             chatId: message.privateChatId || message.groupChatId, // учитываем оба типа чатов
             type: activeChat.type,
@@ -85,19 +86,23 @@ export const useChatWebSocket = () => {
                 handleConnectionStatus(true);
 
                 if (activeChat.id) {
-                    // Подписываемся на сообщения чата
                     const topicDestination = activeChat.type === 'private'
                         ? `/topic/private-message.${activeChat.id}`
                         : `/topic/group-message.${activeChat.id}`;
 
                     await webSocketService.subscribe(
                         topicDestination,
-                        handleMessageReceived
+                        (message) => {
+                            if (message.type === 'MESSAGE_EDITED') {
+                                handleMessageEdited(message);
+                            } else {
+                                handleMessageReceived(message);
+                            }
+                        }
                     );
 
                     console.log(`Subscribed to ${topicDestination}`);
                 }
-
             } catch (error) {
                 console.error('Failed to setup WebSocket:', error);
                 handleConnectionStatus(false);
@@ -106,18 +111,14 @@ export const useChatWebSocket = () => {
 
         setupWebSocket();
 
-        // Cleanup function
         return () => {
             if (activeChat.id) {
                 const topicDestination = activeChat.type === 'private'
                     ? `/topic/private-message.${activeChat.id}`
                     : `/topic/group-message.${activeChat.id}`;
 
-                // Используем unsubscribeFromDestination вместо unsubscribe
                 webSocketService.unsubscribeFromDestination(topicDestination);
             }
-            // Отключаем WebSocket только если компонент полностью размонтируется
-            // webSocketService.disconnect();
         };
     }, [token, activeChat.id, activeChat.type]);
 
@@ -139,7 +140,6 @@ export const useChatWebSocket = () => {
                 message: message
             });
 
-            // Добавим логирование для отладки
             console.log('Message sent successfully');
         } catch (error) {
             console.error('Error sending message:', error);
@@ -177,11 +177,44 @@ export const useChatWebSocket = () => {
         });
     }, [activeChat.type, isConnected, token]);
 
+    const editMessage = useCallback(async (chatId, messageId, editedText) => {
+        if (!isConnected) {
+            await webSocketService.connect(token);
+        }
+
+        const destination = activeChat.type === 'private'
+            ? '/app/privateMessage.edit'
+            : '/app/group.edit';
+
+        await webSocketService.send(destination, {
+            messageId: parseInt(messageId),
+            chatId: parseInt(chatId),
+            editedMessage: editedText
+        });
+    }, [activeChat.type, isConnected, token]);
+
+    const deleteMessage = useCallback(async (chatId, messageId) => {
+        if (!isConnected) {
+            await webSocketService.connect(token);
+        }
+
+        const destination = activeChat.type === 'private'
+            ? '/app/privateMessage.delete'
+            : '/app/group.delete';
+
+        await webSocketService.send(destination, {
+            messageId: parseInt(messageId),
+            chatId: parseInt(chatId)
+        });
+    }, [activeChat.type, isConnected, token]);
+
     return {
         sendMessage,
         sendTypingStatus,
         markMessageAsRead,
-        isConnected: isConnected && !!activeChat.id
+        isConnected: isConnected && !!activeChat.id,
+        editMessage,
+        deleteMessage
     };
 };
 
