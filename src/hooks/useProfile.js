@@ -7,8 +7,11 @@ import {
     deleteAvatar,
     clearUpdateSuccess,
     clearError,
-    updateUserPassword, deleteProfile
+    updateUserPassword,
+    deleteProfile,
+    setUserOnlineStatus
 } from '../redux/slices/profileSlice';
+import { webSocketService } from './api/websocket';
 
 export const useProfile = () => {
     const dispatch = useDispatch();
@@ -22,6 +25,24 @@ export const useProfile = () => {
 
     useEffect(() => {
         dispatch(fetchUserProfile());
+
+        const token = localStorage.getItem('token');
+        if (token) {
+            webSocketService.connect(token).then(() => {
+                webSocketService.send('/app/user.connect', {});
+            });
+        }
+
+        const handleUnload = () => {
+            webSocketService.send('/app/user.disconnect', {});
+        };
+
+        window.addEventListener('unload', handleUnload);
+
+        return () => {
+            webSocketService.disconnect();
+            window.removeEventListener('unload', handleUnload);
+        };
     }, [dispatch]);
 
     const updateProfile = async (userData) => {
