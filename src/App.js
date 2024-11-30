@@ -16,6 +16,7 @@ import Settings from './pages/Settings/Settings';
 import PrivateRoute from './components/common/PrivateRoute';
 import Chats from "./pages/Chats/Chats";
 import UserProfile from './pages/UserProfile/UserProfile';
+import {useUserActivity} from "./hooks/useUserActivity";
 
 const theme = createTheme({
     palette: {
@@ -46,23 +47,11 @@ const theme = createTheme({
 });
 
 function App() {
+    const isActive = useUserActivity();
+
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            webSocketService.connect(token).then(() => {
-                webSocketService.send('/app/user.connect', {});
-            });
-        }
-
-        const handleUnload = () => {
-            webSocketService.send('/app/user.disconnect', {});
-        };
-
-        window.addEventListener('unload', handleUnload);
-
         return () => {
             webSocketService.disconnect();
-            window.removeEventListener('unload', handleUnload);
         };
     }, []);
 
