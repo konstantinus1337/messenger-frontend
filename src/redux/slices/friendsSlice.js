@@ -56,7 +56,7 @@ const friendsSlice = createSlice({
                 state.friendsList.push(newFriend);
                 // Инициализируем статус для нового друга
                 state.onlineStatuses[newFriend.id] = {
-                    status: 'OFFLINE',
+                    status: newFriend.status,
                     timestamp: Date.now()
                 };
             }
@@ -113,12 +113,10 @@ const friendsSlice = createSlice({
                 state.friendsList = action.payload;
                 // Инициализируем статусы для всех друзей
                 action.payload.forEach(friend => {
-                    if (!state.onlineStatuses[friend.id]) {
-                        state.onlineStatuses[friend.id] = {
-                            status: 'OFFLINE',
-                            timestamp: Date.now()
-                        };
-                    }
+                    state.onlineStatuses[friend.id] = {
+                        status: friend.status,
+                        timestamp: Date.now()
+                    };
                 });
             })
             .addCase(fetchFriends.rejected, (state, action) => {

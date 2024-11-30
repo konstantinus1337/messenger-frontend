@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -15,6 +15,8 @@ import Settings from './pages/Settings/Settings';
 import PrivateRoute from './components/common/PrivateRoute';
 import Chats from "./pages/Chats/Chats";
 import UserProfile from './pages/UserProfile/UserProfile';
+import {useUserActivity} from "./hooks/useUserActivity";
+import {webSocketService} from "./api/websocket";
 
 
 
@@ -48,7 +50,13 @@ const theme = createTheme({
 });
 
 function App() {
+    const isActive = useUserActivity();
 
+    useEffect(() => {
+        return () => {
+            webSocketService.disconnect();
+        };
+    }, []);
   return (
       <Provider store={store}>
         <ThemeProvider theme={theme}>
