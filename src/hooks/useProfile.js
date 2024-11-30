@@ -33,15 +33,15 @@ export const useProfile = () => {
             });
         }
 
-        const handleBeforeUnload = () => {
+        const handleUnload = () => {
             webSocketService.send('/app/user.disconnect', {});
         };
 
-        window.addEventListener('beforeunload', handleBeforeUnload);
+        window.addEventListener('unload', handleUnload);
 
         return () => {
             webSocketService.disconnect();
-            window.removeEventListener('beforeunload', handleBeforeUnload);
+            window.removeEventListener('unload', handleUnload);
         };
     }, [dispatch]);
 
