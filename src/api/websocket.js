@@ -192,7 +192,7 @@ class WebSocketService {
         }
     }
 
-    unsubscribeFromChat(chatId) {
+        unsubscribeFromChat(chatId) {
         console.log(`Unsubscribing from chat ${chatId}...`);
         const chatDestinations = [
             `/chat.${chatId}.messages`,

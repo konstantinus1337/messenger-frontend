@@ -5,7 +5,6 @@ import { loginStart, loginSuccess, loginFailure, logout } from '../redux/slices/
 import { AuthAPI } from '../api/auth.api';
 import { tokenStorage } from '../utils/tokenStorage';
 import { ROUTES, ERROR_MESSAGES } from '../utils/constants';
-import { webSocketService } from '../api/websocket'; // Импортируем сервис WebSocket
 
 export const useAuth = () => {
     const dispatch = useDispatch();
@@ -31,11 +30,6 @@ export const useAuth = () => {
 
             dispatch(loginSuccess(response));
             navigate(ROUTES.PROFILE);
-
-            // Устанавливаем WebSocket-соединение и отправляем сообщение о подключении
-            await webSocketService.connect(token);
-            webSocketService.send('/app/user.connect', {});
-
             return response;
         } catch (err) {
             const errorMessage = err.response?.data?.message || ERROR_MESSAGES.LOGIN_FAILED;
@@ -54,11 +48,6 @@ export const useAuth = () => {
             tokenStorage.setToken(token);
             dispatch(loginSuccess(response));
             navigate(ROUTES.PROFILE);
-
-            // Устанавливаем WebSocket-соединение и отправляем сообщение о подключении
-            await webSocketService.connect(token);
-            webSocketService.send('/app/user.connect', {});
-
             return response;
         } catch (err) {
             const errorMessage = err.response?.data?.message || ERROR_MESSAGES.REGISTER_FAILED;
@@ -72,10 +61,6 @@ export const useAuth = () => {
         tokenStorage.removeToken();
         tokenStorage.clearRememberMe();
         navigate(ROUTES.HOME);
-
-        // Отключаем WebSocket и отправляем сообщение об отключении
-        webSocketService.send('/app/user.disconnect', {});
-        webSocketService.disconnect();
     };
 
     const checkAuth = async () => {
